@@ -17,6 +17,7 @@ def test_demo_strategy(index_daily):
     ma_strategy = MovingAverageStrategy(data=index_daily)
     signals = ma_strategy.generate_signals(
         indicator='close',
+        asset_col='ts_code',
         ma_buy=720,
         ma_sell=180,
         buy_bias=-0.3,

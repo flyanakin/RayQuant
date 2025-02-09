@@ -42,7 +42,7 @@ class MovingAverageStrategy(Strategy):
     def generate_signals(
             self,
             indicator: str,
-            asset_name: str,
+            asset_col: str,
             ma_buy: int,
             ma_sell: int,
             buy_bias: float,
@@ -51,7 +51,7 @@ class MovingAverageStrategy(Strategy):
         """
         生成交易信号
         :param indicator: 指标名称，根据哪个指标的均线进行计算
-        :param asset_name: 标的名称
+        :param asset_col: 标的名称列
         :param ma_buy: 买入参考的均线
         :param ma_sell: 卖出参考的均线
         :param buy_bias: 买入偏离均线的百分比
@@ -67,4 +67,4 @@ class MovingAverageStrategy(Strategy):
         # 生成交易信号
         self.data.loc[self.data['buy_bias'] < buy_bias, 'signal'] = 'BUY'
         self.data.loc[self.data['sell_bias'] > sell_bias, 'signal'] = 'SELL'
-        return self.data[[indicator, asset_name, 'buy_ma', 'sell_ma', 'buy_bias', 'sell_bias', 'signal']]
+        return self.data[[indicator, asset_col, 'buy_ma', 'sell_ma', 'buy_bias', 'sell_bias', 'signal']]
