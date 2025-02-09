@@ -60,11 +60,10 @@ class MovingAverageStrategy(Strategy):
         self.data['buy_ma'] = self.data[indicator].rolling(window=ma_buy).mean()
         self.data['sell_ma'] = self.data[indicator].rolling(window=ma_sell).mean()
         # 计算偏离均线的百分比
-        self.data['bias'] = (self.data[indicator] - self.data['buy_ma']) / self.data['sell_ma']
+        self.data['buy_bias'] = (self.data[indicator] - self.data['buy_ma']) / self.data['buy_ma']
+        self.data['sell_bias'] = (self.data[indicator] - self.data['sell_ma']) / self.data['sell_ma']
         # 生成交易信号
         self.data['signal'] = 'HOLD'
-        self.data.loc[self.data['buy_ma'] > buy_bias, 'signal'] = 'BUY'
-        self.data.loc[self.data['sell_ma'] < sell_bias, 'signal'] = 'SELL'
-        # 生成打印信息
-        self.data['message'] = f"{self.data.index}产生{self.data['signal']}信号，当前{indicator}为{self.data[indicator]}"
-        return self.data
+        self.data.loc[self.data['buy_bias'] < buy_bias, 'signal'] = 'BUY'
+        self.data.loc[self.data['sell_bias'] > sell_bias, 'signal'] = 'SELL'
+        return self.data[[indicator, 'buy_ma', 'sell_ma', 'buy_bias', 'sell_bias', 'signal']]
