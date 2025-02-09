@@ -3,4 +3,5 @@
 
 # Ignore virtual environment
 .venv/
+.env
 *.iml
