@@ -1,6 +1,6 @@
 import pandas as pd
 from core.strategy import MovingAverageStrategy
-from core.position_sizer import PositionSizer
+from core.position_sizer import FullCashPositionSizer
 from core.broker import Broker
 from core.portfolio import Portfolio
 from core.backtester import BackTester
@@ -18,9 +18,9 @@ def main():
     # 并且 'ts_code' 代表标的名(可能都是 '000905.SH' 这样的)
 
     # 2) 构造公共模块
-    position_sizer = PositionSizer()
+    position_sizer = FullCashPositionSizer()
     broker = Broker()
-    portfolio = Portfolio(initial_cash=1000000000)
+    portfolio = Portfolio(initial_cash=1000000)
 
     # 3) 试用 MovingAverageStrategy
     ma_strategy = MovingAverageStrategy(

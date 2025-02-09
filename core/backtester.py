@@ -35,7 +35,6 @@ class BackTester:
           2) 用 position_sizer 把信号转为订单
           3) broker 执行订单，更新 portfolio
           4) 计算并记录每日组合净值
-        :param strategy_kwargs: 会透传给 strategy.generate_signals(**strategy_kwargs)
         :return: 回测结果 DataFrame(index=日期, columns=['total_value'])
         """
         # 1) 策略信号

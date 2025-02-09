@@ -11,7 +11,7 @@ class Portfolio:
       3) self.trade_log (pd.DataFrame): 交易记录, 包含 [asset, trade_date, trade_qty, trade_price]
     """
 
-    def __init__(self, initial_cash: float = 10000000.0):
+    def __init__(self, initial_cash: float = 1000000.0):
         """
         初始化组合:
           :param initial_cash: 初始资金
