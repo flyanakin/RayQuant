@@ -12,12 +12,11 @@ class Strategy(ABC):
     REQUIRED_COLUMNS = {'asset', 'signal'}
 
     @abstractmethod
-    def generate_signals(self, data: pd.DataFrame, **kwargs) -> pd.DataFrame:
+    def generate_signals(self, **kwargs) -> pd.DataFrame:
         """
         必须由子类实现的方法，用于生成交易信号。
 
         参数:
-            data (pd.DataFrame): 策略所需的行情或因子数据(子类自行定义结构)
             **kwargs: 策略参数（如均线窗口、偏离阈值等）
 
         Returns:
@@ -43,22 +42,36 @@ class MovingAverageStrategy(Strategy):
     """
     均线策略示例：当向下偏离长周期均线到一定程度时买入，向上偏离短周期均线到一定程度时卖出。
     """
-    def __init__(self, data: pd.DataFrame):
+    def __init__(self,
+                 data: pd.DataFrame,
+                 indicator: str = 'close',
+                 asset_col: str = 'asset',
+                 ma_buy: int = 720,
+                 ma_sell: int = 180,
+                 buy_bias: float = -0.3,
+                 sell_bias: float = 0.15
+                 ):
         self.data = data
+        self.indicator = indicator
+        self.asset_col = asset_col
+        self.ma_buy = ma_buy
+        self.ma_sell = ma_sell
+        self.buy_bias = buy_bias
+        self.sell_bias = sell_bias
 
-    def generate_signals(self, **kwargs) -> pd.DataFrame:
+    def generate_signals(self) -> pd.DataFrame:
         """
         使用父类的签名：def generate_signals(self, data: pd.DataFrame, **kwargs)
         通过 kwargs 获取策略所需的具体参数。
         """
 
         # 1) 从 kwargs 中获取所需参数，若不存在则设默认值
-        indicator = kwargs.get('indicator', 'close')
-        asset_col = kwargs.get('asset_col', 'asset')
-        ma_buy = kwargs.get('ma_buy', 720)
-        ma_sell = kwargs.get('ma_sell', 180)
-        buy_bias = kwargs.get('buy_bias', -0.3)
-        sell_bias = kwargs.get('sell_bias', 0.15)
+        indicator = self.indicator
+        asset_col = self.asset_col
+        ma_buy = self.ma_buy
+        ma_sell = self.ma_sell
+        buy_bias = self.buy_bias
+        sell_bias = self.sell_bias
 
         data = self.data
 

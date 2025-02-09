@@ -8,10 +8,10 @@ from core.backtester import BackTester
 
 def main():
     # 1) 读取数据(示例：中证500的日行情)
-    df = pd.read_csv('../test/dataset/index_daily_中证500.csv')
+    df = pd.read_csv("../test/dataset/index_daily_中证500.csv")
     # 假设 CSV 中有 'ts_code', 'trade_date', 'close' 等列
-    df['trade_date'] = pd.to_datetime(df['trade_date'], format='%Y%m%d')
-    df.set_index('trade_date', inplace=True)
+    df["trade_date"] = pd.to_datetime(df["trade_date"], format="%Y%m%d")
+    df.set_index("trade_date", inplace=True)
     df.sort_index(inplace=True)
 
     # 假设 CSV 中至少包含 ['ts_code','close'] 列
@@ -23,16 +23,17 @@ def main():
     portfolio = Portfolio(initial_cash=1000000000)
 
     # 3) 试用 MovingAverageStrategy
-    ma_strategy = MovingAverageStrategy(data=df)
-    backtester = BackTester(ma_strategy, position_sizer, broker, portfolio, df)
-    result_ma = backtester.run_backtest(
-        indicator='close',
-        asset_col='ts_code',
+    ma_strategy = MovingAverageStrategy(
+        data=df,
+        indicator="close",
+        asset_col="ts_code",
         ma_buy=720,
         ma_sell=180,
         buy_bias=-0.3,
-        sell_bias=0.15
+        sell_bias=0.15,
     )
+    backtester = BackTester(ma_strategy, position_sizer, broker, portfolio, df)
+    result_ma = backtester.run_backtest()
     print("=== MA 策略结果 ===")
     print(result_ma.tail(10))
 
@@ -42,7 +43,7 @@ def main():
     print("...")
     print(result_ma.tail(10))
 
-    final_value = result_ma['total_value'].iloc[-1]
+    final_value = result_ma["total_value"].iloc[-1]
     print(f"\n回测结束时组合总价值: {final_value}")
     print("\n===== 最终持仓信息 =====")
     print(portfolio.asset)
