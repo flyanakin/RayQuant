@@ -1,64 +1,80 @@
 # position_sizer.py
 import pandas as pd
+import math
+
 
 class PositionSizer:
+    """
+    按“百分比头寸”来生成订单的版本示例：
+      - BUY: 用剩余现金(100%) 来买入资产
+      - SELL: 卖出全部持仓
+      - 无现金或无持仓时跳过
+    """
+
     def __init__(self):
         pass
 
-    def transform_signals_to_orders(self, signals: pd.DataFrame, portfolio, data: pd.DataFrame) -> pd.DataFrame:
+    def transform_signals_to_orders(self,
+                                    signals: pd.DataFrame,
+                                    portfolio,
+                                    data: pd.DataFrame) -> pd.DataFrame:
         """
         :param signals: 必须包含 [asset, signal], index=日期
-        :param portfolio: 用于查询当前持仓
+        :param portfolio: 用于查询当前资金和持仓
+        :param data: 行情DataFrame, index=日期, 至少包含 'close'
         :return: 订单DataFrame, [date, asset, side, quantity]
         """
         orders_list = []
+
         for idx, row in signals.iterrows():
             asset_name = row["asset"]
             signal = row["signal"]
+
+            # 跳过无信号
             if pd.isna(signal):
-                continue  # 无信号跳过
-
-            # 判断是否科创板(688) -> lot_size=200，否则=100
-            lot_size = 200 if asset_name.startswith('688') else 100
-
-            if signal.upper() == "BUY":
-                # 2) 取当日价格
-                if idx in data.index:
-                    price = data.loc[idx, 'close']
-                else:
-                    continue
-
-                cost_to_buy = lot_size * price
-                print(f"Buying {asset_name} at {price}, cost: {cost_to_buy}")
-                # 3) 判断资金够不够
-                if cost_to_buy > portfolio.cash:
-                    # 资金不足，就跳过或者只买部分
-                    # （以下以"跳过"为例, 不下单）
-                    continue
-                side = "BUY"
-                quantity = lot_size
-
-            elif signal.upper() == "SELL":
-                side = "SELL"
-                # 先获取当前持仓
-                position_info = portfolio.asset[portfolio.asset["asset"] == asset_name]
-                if position_info.empty:
-                    # 没有持仓则跳过，不生成订单
-                    continue
-                current_quantity = position_info.iloc[0]["quantity"]
-                # 这里简单假设每次想卖1手，如果剩余持仓不足1手，就只卖剩余持仓
-                sell_lot = min(current_quantity, lot_size)
-                if sell_lot <= 0:
-                    continue
-                quantity = sell_lot
-            else:
                 continue
 
-            orders_list.append({
-                "date": idx,
-                "asset": asset_name,
-                "side": side,
-                "quantity": quantity,
-            })
+                # 获取当日收盘价(若没有就跳过)
+            if idx not in data.index:
+                continue
+            price = data.loc[idx, 'close']
+
+            if signal.upper() == "BUY":
+                # 1) 计算能买多少股？（假设用全部剩余现金）
+                # 注意是 int() 向下取整，以确保不会超出资金
+                shares_to_buy = int(portfolio.cash // price)
+
+                if shares_to_buy <= 0:
+                    # 资金不足，买不了任何一股 => 跳过
+                    continue
+
+                orders_list.append({
+                    "date": idx,
+                    "asset": asset_name,
+                    "side": "BUY",
+                    "quantity": shares_to_buy,
+                })
+
+            elif signal.upper() == "SELL":
+                # 2) 先获取当前持仓
+                position_info = portfolio.asset[portfolio.asset["asset"] == asset_name]
+                if position_info.empty:
+                    # 没有持仓则跳过
+                    continue
+                current_quantity = position_info.iloc[0]["quantity"]
+                if current_quantity <= 0:
+                    continue
+
+                # 默认卖出全部持仓
+                orders_list.append({
+                    "date": idx,
+                    "asset": asset_name,
+                    "side": "SELL",
+                    "quantity": current_quantity,
+                })
+
+            else:
+                # 其他信号(HOLD等) => 跳过
+                continue
 
         return pd.DataFrame(orders_list)
