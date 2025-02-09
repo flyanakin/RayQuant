@@ -28,18 +28,17 @@ class BackTester:
         self.portfolio = portfolio
         self.data = data
 
-    def run_backtest(self, **strategy_kwargs) -> pd.DataFrame:
+    def run_backtest(self) -> pd.DataFrame:
         """
         核心流程:
           1) 用 strategy.generate_signals() 生成交易信号
           2) 用 position_sizer 把信号转为订单
           3) broker 执行订单，更新 portfolio
           4) 计算并记录每日组合净值
-        :param strategy_kwargs: 会透传给 strategy.generate_signals(**strategy_kwargs)
         :return: 回测结果 DataFrame(index=日期, columns=['total_value'])
         """
         # 1) 策略信号
-        signals = self.strategy.generate_signals(**strategy_kwargs)
+        signals = self.strategy.generate_signals()
 
         # 2) 转换为订单
         orders = self.position_sizer.transform_signals_to_orders(signals, self.portfolio, self.data)

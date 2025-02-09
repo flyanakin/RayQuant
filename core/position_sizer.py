@@ -1,64 +1,73 @@
-# position_sizer.py
+from abc import ABC, abstractmethod
 import pandas as pd
 
-class PositionSizer:
-    def __init__(self):
+class PositionSizer(ABC):
+    """
+    抽象基类：所有PositionSizer都必须实现 transform_signals_to_orders() 方法
+    """
+
+    @abstractmethod
+    def transform_signals_to_orders(self,
+                                    signals: pd.DataFrame,
+                                    portfolio,
+                                    data: pd.DataFrame,
+                                    **kwargs) -> pd.DataFrame:
+        """
+        参数:
+            signals: 必须包含 [asset, signal], index=日期 (或其他结构，子类可再细化)
+            portfolio: 用于查询当前资金和持仓
+            data: 行情DataFrame, index=日期, 至少包含 'close'
+            **kwargs: 子类可能需要的其他参数(如风控、波动率、胜率等)
+
+        返回:
+            订单DataFrame, columns=[date, asset, side, quantity], 由Broker执行
+        """
         pass
 
-    def transform_signals_to_orders(self, signals: pd.DataFrame, portfolio, data: pd.DataFrame) -> pd.DataFrame:
-        """
-        :param signals: 必须包含 [asset, signal], index=日期
-        :param portfolio: 用于查询当前持仓
-        :return: 订单DataFrame, [date, asset, side, quantity]
-        """
+
+class FullCashPositionSizer(PositionSizer):
+    """
+    使用全部可用资金买入资产；卖出时清空所有持仓。
+    """
+
+    def transform_signals_to_orders(self,
+                                    signals: pd.DataFrame,
+                                    portfolio,
+                                    data: pd.DataFrame,
+                                    **kwargs) -> pd.DataFrame:
         orders_list = []
         for idx, row in signals.iterrows():
             asset_name = row["asset"]
             signal = row["signal"]
             if pd.isna(signal):
-                continue  # 无信号跳过
-
-            # 判断是否科创板(688) -> lot_size=200，否则=100
-            lot_size = 200 if asset_name.startswith('688') else 100
-
-            if signal.upper() == "BUY":
-                # 2) 取当日价格
-                if idx in data.index:
-                    price = data.loc[idx, 'close']
-                else:
-                    continue
-
-                cost_to_buy = lot_size * price
-                print(f"Buying {asset_name} at {price}, cost: {cost_to_buy}")
-                # 3) 判断资金够不够
-                if cost_to_buy > portfolio.cash:
-                    # 资金不足，就跳过或者只买部分
-                    # （以下以"跳过"为例, 不下单）
-                    continue
-                side = "BUY"
-                quantity = lot_size
-
-            elif signal.upper() == "SELL":
-                side = "SELL"
-                # 先获取当前持仓
-                position_info = portfolio.asset[portfolio.asset["asset"] == asset_name]
-                if position_info.empty:
-                    # 没有持仓则跳过，不生成订单
-                    continue
-                current_quantity = position_info.iloc[0]["quantity"]
-                # 这里简单假设每次想卖1手，如果剩余持仓不足1手，就只卖剩余持仓
-                sell_lot = min(current_quantity, lot_size)
-                if sell_lot <= 0:
-                    continue
-                quantity = sell_lot
-            else:
                 continue
 
-            orders_list.append({
-                "date": idx,
-                "asset": asset_name,
-                "side": side,
-                "quantity": quantity,
-            })
+            if idx not in data.index:
+                continue
+            price = data.loc[idx, 'close']
 
+            if signal.upper() == "BUY":
+                shares_to_buy = int(portfolio.cash // price)
+                if shares_to_buy > 0:
+                    orders_list.append({
+                        "date": idx,
+                        "asset": asset_name,
+                        "side": "BUY",
+                        "quantity": shares_to_buy,
+                    })
+
+            elif signal.upper() == "SELL":
+                position_info = portfolio.asset[portfolio.asset["asset"] == asset_name]
+                if position_info.empty:
+                    continue
+                current_quantity = position_info.iloc[0]["quantity"]
+                if current_quantity > 0:
+                    orders_list.append({
+                        "date": idx,
+                        "asset": asset_name,
+                        "side": "SELL",
+                        "quantity": current_quantity,
+                    })
+            else:
+                continue
         return pd.DataFrame(orders_list)
