@@ -45,9 +45,9 @@ class Portfolio:
         if not mask.any():
             # 新增行
             new_row = {
-                'asset': asset,
-                'quantity': trade_qty,
-                'cost_price': trade_price
+                'asset': asset or '',  # 字符串列，默认值''
+                'quantity': int(trade_qty) or 0,
+                'cost_price': float(trade_price) or 0.0
             }
             self.asset = pd.concat([self.asset, pd.DataFrame([new_row])], ignore_index=True)
         else:
