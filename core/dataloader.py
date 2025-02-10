@@ -1,6 +1,7 @@
 import pandas as pd
 from typing import Dict, Any, List
 from abc import ABC, abstractmethod
+import os
 
 
 class DataLoader(ABC):
@@ -13,15 +14,15 @@ class DataLoader(ABC):
     可以根据需要重写底层“读取”逻辑来适配不同存储方式。
     """
 
-    def __init__(self,
-                 freq: str = 'D',  # 回测所需数据频率：日(D)/周(W)/月(M)/年(Y) 等
-                 time_col: str = 'trade_date',  # 数据表中的日期列列名
-                 symbol_col: str='asset',  # 数据表中的股票标识列列名
-                 timeseries_path: str=None,
-                 fundamental_path: str=None,
-                 meta_path: str=None):
+    def __init__(
+        self,
+        time_col: str = "trade_date",  # 数据表中的日期列列名
+        symbol_col: str = "asset",  # 数据表中的股票标识列列名
+        timeseries_path: str = None,
+        fundamental_path: str = None,
+        meta_path: str = None,
+    ):
         """
-        :param freq: 回测频率 ('D', 'W', 'M', 'Y'等)
         :param time_col: 时序数据的时间列名
         :param symbol_col: 股票唯一标识列名
         :param timeseries_path: 时序数据文件默认路径，默认单文件
@@ -29,7 +30,6 @@ class DataLoader(ABC):
         :param meta_path: Meta 数据文件默认路径，默认单文件
         """
 
-        self.freq = freq
         self.time_col = time_col
         self.symbol_col = symbol_col
 
@@ -85,12 +85,14 @@ class DataLoader(ABC):
         unique_dates = self.timeseries_df.index.get_level_values(0).unique()
         return unique_dates
 
-    def get_daily(self, current_date):
+    def get_data_by_date(self, current_date):
         """
         在特定日期，返回所有标的的时序数据快照(行索引= symbol)。
         """
         if self.timeseries_df is None:
-            raise ValueError("Timeseries data not loaded. Call load_timeseries_data() first.")
+            raise ValueError(
+                "Timeseries data not loaded. Call load_timeseries_data() first."
+            )
 
         try:
             df_slice = self.timeseries_df.xs(current_date, level=0)
@@ -104,4 +106,58 @@ class DataLoader(ABC):
         """
         timeline = self.get_main_timeline()
         for dt in timeline:
-            yield dt, self.get_daily(dt)
+            yield dt, self.get_data_by_date(dt)
+
+    def get_fundamental(self,
+                        current_date,
+                        start_date=None,
+                        end_date=None
+                        ) -> pd.DataFrame:
+        """
+        在特定日期区间，返回所有标的的财务数据快照(行索引= symbol)。
+        """
+        pass
+
+
+class CSVDataLoader(DataLoader):
+    """
+    从按年拆分的低频CSV中加载数据，并提供按日期迭代的接口
+    一个具体子类，必须实现3个抽象方法：
+      - load_timeseries_data()
+      - load_fundamental_data()
+      - load_meta_data()
+    否则会报错。
+    """
+
+    def load_timeseries_data(self):
+        if not os.path.exists(self.timeseries_path):
+            print(f"[WARN] Timeseries file not found: {self.timeseries_path}")
+            self.timeseries_df = pd.DataFrame()
+            return
+
+        df = pd.read_csv(self.timeseries_path)
+        df[self.time_col] = pd.to_datetime(df[self.time_col])
+        df.set_index([self.time_col, self.symbol_col], inplace=True)
+        df.sort_index(inplace=True)
+        self.timeseries_df = df
+
+    def load_fundamental_data(self):
+        if not os.path.exists(self.fundamental_path):
+            print(f"[WARN] Fundamental file not found: {self.fundamental_path}")
+            self.fundamental_df = pd.DataFrame()
+            return
+        df = pd.read_csv(self.fundamental_path)
+        df[self.time_col] = pd.to_datetime(df[self.time_col])
+        df.set_index([self.symbol_col, self.time_col], inplace=True)
+        df.sort_index(inplace=True)
+        self.fundamental_df = df
+
+    def load_meta_data(self):
+        if not os.path.exists(self.meta_path):
+            print(f"[WARN] Meta file not found: {self.meta_path}")
+            self.meta_df = pd.DataFrame()
+            return
+        df = pd.read_csv(self.meta_path)
+        df.set_index(self.symbol_col, inplace=True)
+        df.sort_index(inplace=True)
+        self.meta_df = df
