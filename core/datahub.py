@@ -37,6 +37,7 @@ class Datahub(ABC):
         self.bar_df = None  # 用于存放时序数据
         self.fundamental_df = None  # 用于存放财报数据
         self.info_df = None  # 用于存放元数据
+        self.load_all_data()
 
     @abstractmethod
     def load_bar_data(self):
@@ -67,9 +68,13 @@ class Datahub(ABC):
         一键加载所有数据。
         这里不是抽象方法，因为基类可直接调用子类实现的抽象方法。
         """
+        if 'bar' not in self.data_dict:
+            raise ValueError("bar data not found in data_dict.")
+        if 'info' in self.data_dict:
+            self.load_info_data()
+        if 'fundamental' in self.data_dict:
+            self.load_fundamental_data()
         self.load_bar_data()
-        self.load_fundamental_data()
-        self.load_info_data()
 
     def get_main_timeline(self):
         """
@@ -105,17 +110,17 @@ class Datahub(ABC):
             yield dt, self.get_data_by_date(dt)
 
     def get_bar(self,
-                current_date,
+                current_date=None,
                 start_date=None,
                 end_date=None
                 ) -> pd.DataFrame:
         """
         在特定日期区间，返回所有标的的财务数据快照(行索引= symbol)。
         """
-        pass
+        return self.bar_df
 
 
-class BaseLocalDataHub(Datahub):
+class LocalDataHub(Datahub):
     """
     从按年拆分的低频CSV中加载数据，并提供按日期迭代的接口
     一个具体子类，必须实现3个抽象方法：
@@ -124,10 +129,6 @@ class BaseLocalDataHub(Datahub):
       - load_meta_data()
     否则会报错。
     """
-    def __init__(self):
-        super().__init__(data_dict={})
-        self.load_all_data()
-
     def load_bar_data(self):
         path = self.data_dict['bar']['path']
         if not os.path.exists(path):

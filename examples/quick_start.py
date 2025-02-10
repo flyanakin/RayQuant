@@ -1,4 +1,5 @@
 import pandas as pd
+from core.datahub import LocalDataHub
 from core.strategy import MovingAverageStrategy
 from core.position_sizer import FullCashPositionSizer
 from core.broker import Broker
@@ -10,9 +11,22 @@ def main():
     # 1) 读取数据(示例：中证500的日行情)
     df = pd.read_csv("../test/dataset/index_daily_中证500.csv")
     # 假设 CSV 中有 'ts_code', 'trade_date', 'close' 等列
-    df["trade_date"] = pd.to_datetime(df["trade_date"], format="%Y%m%d")
+    #df["trade_date"] = pd.to_datetime(df["trade_date"], format="%Y%m%d")
     df.set_index("trade_date", inplace=True)
     df.sort_index(inplace=True)
+
+    data_dict = {
+                    "bar": {
+                        "path": "../test/dataset/index_daily_中证500.csv",
+                        "col_mapping": {
+                            "symbol": "ts_code",
+                        }
+                    },
+               }
+
+    hub = LocalDataHub(data_dict)
+    ba = hub.get_bar()
+    print(ba)
 
     # 假设 CSV 中至少包含 ['ts_code','close'] 列
     # 并且 'ts_code' 代表标的名(可能都是 '000905.SH' 这样的)

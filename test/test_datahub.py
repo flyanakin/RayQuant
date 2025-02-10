@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from core.datahub import BaseLocalDataHub
+from core.datahub import LocalDataHub
 
 # --------------------------
 # pytest 测试用例
@@ -46,7 +46,7 @@ def csv_files(tmp_path):
 # --------------------------
 
 
-class TestLocalDataHub(BaseLocalDataHub):
+class TestLocalDataHub(LocalDataHub):
     """
     用于测试 load_all_data 及其他接口
     """
@@ -65,7 +65,7 @@ class TestLocalDataHub(BaseLocalDataHub):
         ).set_index("symbol")
 
 
-class BarOnlyDataHub(BaseLocalDataHub):
+class BarOnlyDataHub(LocalDataHub):
     """
     仅加载时序数据，用于测试 get_data_by_date 与 timeseries_iterator 方法
     """
