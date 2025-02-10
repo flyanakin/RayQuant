@@ -3,7 +3,7 @@
 - 一些众所周知的量化策略
 - 一个业余的Software Engineer
 # ⚙️模块
-## DataLoader
+## Datahub
 专门做脏活累活的工具人，读取数据，默认CSV
 # Strategy
 通过各种自以为是的倒腾，得到股票的买入卖出信号
