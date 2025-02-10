@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import Dict, Any, List
+from typing import Dict, Any
 from abc import ABC, abstractmethod
 import os
 
@@ -162,4 +162,4 @@ class BaseLocalDataHub(Datahub):
 
         df.set_index(['symbol'], inplace=True)
         df.sort_index(inplace=True, ascending=True)
-        self.bar_df = df
+        self.info_df = df
