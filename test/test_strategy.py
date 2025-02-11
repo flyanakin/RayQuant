@@ -2,26 +2,32 @@ import pandas as pd
 import pytest
 
 from core.strategy import MovingAverageStrategy
+from core.datahub import LocalDataHub
 
 
 @pytest.fixture
-def index_daily():
-    df = pd.read_csv("dataset/index_daily_中证500.csv")
-    df["trade_date"] = pd.to_datetime(df["trade_date"], format="%Y%m%d")
-    df.sort_values("trade_date", inplace=True)
-    df.set_index("trade_date", inplace=True)
-    return df
+def hub():
+    data_dict = {
+        "bar": {
+            "path": "../test/dataset/index_daily_中证500.csv",
+            "col_mapping": {
+                "symbol": "ts_code",
+            },
+        },
+    }
+
+    hub = LocalDataHub(data_dict)
+    return hub
 
 
-def test_demo_strategy(index_daily):
+def test_demo_strategy(hub):
     ma_strategy = MovingAverageStrategy(
-        data=index_daily,
+        hub=hub,
         indicator="close",
-        asset_col="ts_code",
         ma_buy=720,
         ma_sell=180,
         buy_bias=-0.3,
         sell_bias=0.15,
     )
-    signals = ma_strategy.generate_signals()
+    signals = ma_strategy.generate_signals(current_time=pd.Timestamp("2023-01-01"))
     print(f"\n=====交易信号=====\n{signals}")
