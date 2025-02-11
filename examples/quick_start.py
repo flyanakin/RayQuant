@@ -1,7 +1,7 @@
 import pandas as pd
 from core.datahub import LocalDataHub
 from core.strategy import MovingAverageStrategy
-from core.position_sizer import FullCashPositionSizer
+from core.position_manager import AllInPositionManager
 from core.broker import Broker
 from core.portfolio import Portfolio
 from core.backtester import BackTester
@@ -20,7 +20,7 @@ def main():
     hub = LocalDataHub(data_dict)
 
     # 2) 构造公共模块
-    position_sizer = FullCashPositionSizer()
+    position_sizer = AllInPositionManager()
     broker = Broker()
     portfolio = Portfolio(initial_cash=1000000)
 
