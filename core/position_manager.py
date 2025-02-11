@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 import pandas as pd
 from core.strategy import Signal
 from core.portfolio import Portfolio
+from core.broker import Order
 from core.datahub import Datahub
 
 
@@ -17,29 +18,6 @@ def get_min_lot(asset: str) -> int:
         return 200
     else:
         return 100
-
-
-class Order:
-    """
-    Order 数据封装类，用于包装订单 DataFrame，并对数据结构进行验证
-    """
-    # 定义必须包含的列和索引层级（可以根据需要调整）
-    REQUIRED_COLUMNS = {'date', 'asset', 'side', 'quantity'}
-
-    def __init__(self, df: pd.DataFrame):
-        self._validate(df)
-        self.df = df
-
-    def _validate(self, df: pd.DataFrame):
-        missing_cols = self.REQUIRED_COLUMNS - set(df.columns)
-        if missing_cols:
-            raise ValueError(f"Order 数据缺少必需的列: {missing_cols}")
-
-    def get(self):
-        return self.df
-
-    def __repr__(self):
-        return f"<Order: {self.df.shape[0]} 条记录>"
 
 
 class PositionManager(ABC):
@@ -92,6 +70,7 @@ class EqualWeightPositionManager(PositionManager):
         """
         orders_list = []
         df_signals = signals.get()
+        current_prices = data.get_bar(current_date=current_time)
 
         # 确保 'signal' 列为大写字符串，方便比较
         df_signals['signal'] = df_signals['signal'].astype(str).str.upper()
@@ -111,11 +90,13 @@ class EqualWeightPositionManager(PositionManager):
             if not holding.empty:
                 held_qty = holding.iloc[0]['quantity']
                 if held_qty > 0:
+                    trade_price = current_prices.loc[(current_time, symbol), 'close'] # 这里默认了用收盘价立刻买入
                     orders_list.append({
                         "date": current_time,
                         "asset": symbol,
                         "side": "SELL",
-                        "quantity": held_qty
+                        "quantity": held_qty,
+                        "trade_price": trade_price
                     })
 
         # --- 处理买入信号 ---
@@ -131,7 +112,7 @@ class EqualWeightPositionManager(PositionManager):
                 else:
                     symbol = idx
 
-                close_price = row['close']
+                close_price = current_prices.loc[(current_time, symbol), 'close']
                 min_lot = get_min_lot(symbol)
                 # 计算使用 allocated_cash 能买入的最大股数
                 raw_qty = allocated_cash / close_price
@@ -143,10 +124,11 @@ class EqualWeightPositionManager(PositionManager):
                         "date": current_time,
                         "asset": symbol,
                         "side": "BUY",
-                        "quantity": order_qty
+                        "quantity": order_qty,
+                        "trade_price": close_price
                     })
 
         # 构造订单 DataFrame，必须包含 ['date', 'asset', 'side', 'quantity'] 列
-        orders_df = pd.DataFrame(orders_list, columns=['date', 'asset', 'side', 'quantity'])
+        orders_df = pd.DataFrame(orders_list, columns=['date', 'asset', 'side', 'quantity', 'trade_price'])
         return Order(orders_df)
 

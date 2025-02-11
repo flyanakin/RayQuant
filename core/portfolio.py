@@ -1,5 +1,6 @@
-from typing import List
 import pandas as pd
+from core.broker import Order
+from core.datahub import Datahub
 
 
 class Portfolio:
@@ -11,6 +12,7 @@ class Portfolio:
         - asset: 标的名称或代码
         - quantity: 持仓数量(注意是股数而不是手数)
         - cost_price: 加权成本价
+        - current_price: 当前市场价格
       3) self.trade_log (pd.DataFrame): 交易记录, 包含 [asset, trade_date, trade_qty, trade_price]
         - trade_qty: 买入为正, 卖出为负
     """
@@ -25,120 +27,143 @@ class Portfolio:
         self.cash = initial_cash
 
         # 当前持仓信息。若要支持多标的，可直接多行
-        self.asset = pd.DataFrame(columns=['asset', 'quantity', 'cost_price'])
+        self.asset = pd.DataFrame(columns=['asset', 'quantity', 'cost_price', 'current_price'])
         # 交易日志
         self.trade_log = pd.DataFrame(columns=['asset', 'trade_date', 'trade_qty', 'trade_price'])
 
-    def buy(self, asset: str, trade_date, trade_qty: int, trade_price: float):
+    def buy(self,
+            order: Order
+            ):
         """
-        买入操作: 更新仓位信息, 扣减现金, 记录交易日志
-        :param asset: 标的
-        :param trade_date: 成交日期
-        :param trade_qty: 买入数量
-        :param trade_price: 买入价格
+        买入操作: 更新仓位信息, 扣减现金，忽略交易成本，买入成功时current_price=cost_price 记录交易日志
+        :param order: 订单
         """
-        cost = trade_qty * trade_price
-        if cost > self.cash:
-            # 资金不足就不允许买入(或自行处理买入量)
-            raise ValueError("Not enough cash to complete BUY order.")
+        # 遍历订单中每一条记录
+        for _, row in order.get().iterrows():
+            asset = row['asset']
+            quantity = row['quantity']
+            trade_date = row['date']
+            if 'trade_price' in row:
+                trade_price = row['trade_price']
+            else:
+                raise ValueError("买入订单缺少交易价格字段 'trade_price'。")
 
-        # 扣减现金
-        self.cash -= cost
+            total_cost = quantity * trade_price
+            if self.cash < total_cost:
+                raise ValueError(f"现金不足，无法买入 {asset}，需要 {total_cost}，当前现金 {self.cash}。")
 
-        # 更新持仓
-        # 如果此标的已存在, 更新数量和加权成本
-        mask = (self.asset['asset'] == asset)
-        if not mask.any():
-            # 新增行
-            new_row = {
-                'asset': asset or '',  # 字符串列，默认值''
-                'quantity': int(trade_qty) or 0,
-                'cost_price': float(trade_price) or 0.0
-            }
-            self.asset = pd.concat([self.asset, pd.DataFrame([new_row])], ignore_index=True)
-        else:
-            current_quantity = self.asset.loc[mask, 'quantity'].values[0]
-            current_cost_price = self.asset.loc[mask, 'cost_price'].values[0]
+            # 扣减现金
+            self.cash -= total_cost
 
-            new_quantity = current_quantity + trade_qty
-            # 加权成本价 = (旧持仓 * 旧成本 + 新买入数量 * 买入价) / (总数量)
-            new_cost_price = (
-                current_quantity * current_cost_price + trade_qty * trade_price
-            ) / new_quantity
+            # 更新持仓记录
+            mask = self.asset['asset'] == asset
+            if self.asset[mask].empty:
+                # 新增持仓记录
+                new_record = pd.DataFrame({
+                    'asset': [asset],
+                    'quantity': [quantity],
+                    'cost_price': [trade_price],  # 买入时成本价为成交价
+                    'current_price': [trade_price]  # 初始当前价格设为买入价格
+                }, index=[0])
+                self.asset = pd.concat([self.asset, new_record], ignore_index=True)
+            else:
+                # 更新已有持仓
+                idx_existing = self.asset[mask].index[0]
+                old_quantity = self.asset.at[idx_existing, 'quantity']
+                old_cost_price = self.asset.at[idx_existing, 'cost_price']
+                new_quantity = old_quantity + quantity
+                # 计算加权平均成本价
+                new_cost_price = (old_quantity * old_cost_price + quantity * trade_price) / new_quantity
+                self.asset.at[idx_existing, 'quantity'] = new_quantity
+                self.asset.at[idx_existing, 'cost_price'] = new_cost_price
+                # 买入成功时将当前价格更新为新加权成本价
+                self.asset.at[idx_existing, 'current_price'] = new_cost_price
 
-            self.asset.loc[mask, 'quantity'] = new_quantity
-            self.asset.loc[mask, 'cost_price'] = new_cost_price
+            # 记录交易日志（买入交易数量为正）
+            new_record = pd.DataFrame({
+                'asset': [asset],
+                'trade_date': [trade_date],
+                'trade_qty': [quantity],
+                'trade_price': [trade_price]
+            },index=[0])
+            self.trade_log = pd.concat([self.trade_log, new_record], ignore_index=True)
 
-        # 记录交易日志
-        new_trade = {
-            'asset': asset,
-            'trade_date': trade_date,
-            'trade_qty': trade_qty,
-            'trade_price': trade_price
-        }
-        self.trade_log = pd.concat([self.trade_log, pd.DataFrame([new_trade])], ignore_index=True)
-
-    def sell(self, asset: str, trade_date, trade_qty: int, trade_price: float):
+    def sell(self, order: Order):
         """
         卖出操作: 更新仓位信息, 增加现金, 记录交易日志
-        :param asset: 标的
-        :param trade_date: 成交日期
-        :param trade_qty: 卖出数量
-        :param trade_price: 卖出价格
+        :param order: 订单
         """
-        mask = (self.asset['asset'] == asset)
-        if not mask.any():
-            raise ValueError(f"No position to SELL for asset: {asset}")
+        for _, row in order.get().iterrows():
+            asset = row['asset']
+            quantity = row['quantity']
+            trade_date = row['date']
+            if 'trade_price' in row:
+                trade_price = row['trade_price']
+            else:
+                raise ValueError("卖出订单缺少交易价格字段 'trade_price'。")
 
-        current_quantity = self.asset.loc[mask, 'quantity'].values[0]
-        if trade_qty > current_quantity:
-            raise ValueError("Not enough shares to sell.")
+            # 检查是否持有该标的及持仓数量是否足够
+            mask = self.asset['asset'] == asset
+            if self.asset[mask].empty:
+                raise ValueError(f"持仓中不存在标的 {asset}，无法卖出。")
+            idx_existing = self.asset[mask].index[0]
+            current_quantity = self.asset.at[idx_existing, 'quantity']
+            if quantity > current_quantity:
+                raise ValueError(f"持仓数量不足，标的 {asset} 当前持仓 {current_quantity}，尝试卖出 {quantity}。")
 
-        # 卖出获得资金
-        revenue = trade_qty * trade_price
-        self.cash += revenue
+            # 卖出获得的现金
+            self.cash += quantity * trade_price
 
-        # 更新持仓
-        new_quantity = current_quantity - trade_qty
-        if new_quantity == 0:
-            # 清仓后删掉这一行
-            self.asset = self.asset.loc[~mask]
-        else:
-            self.asset.loc[mask, 'quantity'] = new_quantity
-            # cost_price 原则上不变 (剩余持仓维持原成本)
+            # 更新持仓：卖出数量扣除，如果剩余为0则移除记录，否则更新数量
+            new_quantity = current_quantity - quantity
+            if new_quantity == 0:
+                self.asset = self.asset.drop(idx_existing).reset_index(drop=True)
+            else:
+                self.asset.at[idx_existing, 'quantity'] = new_quantity
+                # 卖出后，更新持仓中的当前价格为卖出价格（此处也可以选择不更新，根据实际需求调整）
+                self.asset.at[idx_existing, 'current_price'] = trade_price
 
-        # 记录交易日志
-        new_trade = {
-            'asset': asset,
-            'trade_date': trade_date,
-            'trade_qty': -trade_qty,  # 卖出记为负数
-            'trade_price': trade_price
-        }
-        self.trade_log = pd.concat([self.trade_log, pd.DataFrame([new_trade])], ignore_index=True)
+            # 记录交易日志，卖出时交易数量记为负
+            new_record = pd.DataFrame({
+                'asset': [asset],
+                'trade_date': [trade_date],
+                'trade_qty': [-quantity],
+                'trade_price': [trade_price]
+            }, index=[0])
+            self.trade_log = pd.concat([self.trade_log, new_record], ignore_index=True)
 
-    def get_asset_value(self, date, price_lookup: pd.DataFrame) -> float:
+    def get_asset_value(self,
+                        current_date: pd.Timestamp,
+                        data: Datahub
+                        ) -> float:
         """
         计算当前持仓的市值 = ∑(quantity * 最新价格)
-        :param date: 当前日期
-        :param price_lookup: 一个行情表, index 为日期, columns 包含 'close'
+        :param current_date: 当前日期
+        :param data: 一个行情表, index 为日期, columns 包含 'close'
         :return: 持仓市值
         """
-        total_val = 0.0
+        total_value = 0.0
+        # TODO:去掉循环
         for _, row in self.asset.iterrows():
-            asset_symbol = row['asset']
+            asset = row['asset']
             quantity = row['quantity']
-            # 简化假设: 同一个 asset_symbol 的 price_lookup
-            # 这里演示只针对一个标的, 若多标的, 需更复杂处理
-            if date in price_lookup.index:
-                latest_price = price_lookup.loc[date, 'close']
+            # 获取指定标的在当前日期的行情数据
+            df_bar = data.get_bar(symbol=asset, current_date=current_date)
+            if df_bar.empty:
+                # 若无法获取行情数据，则退而求其次，使用持仓记录中的 current_price
+                price = row['current_price']
             else:
-                # 若当前日没有价格(休市等), 可能用前一日价格, 这里简单返回0
-                latest_price = 0
-            total_val += quantity * latest_price
-        return total_val
+                # 假定返回的 DataFrame 中 'close' 为最新价格
+                price = df_bar.iloc[0]['close']
+            total_value += quantity * price
+        return total_value
 
-    def total_value(self, date, price_lookup: pd.DataFrame) -> float:
+    def total_value(self,
+                    current_date: pd.Timestamp,
+                    data: Datahub
+                    ) -> float:
         """
         返回组合总价值 = 现金 + 持仓市值
         """
-        return self.cash + self.get_asset_value(date, price_lookup)
+        asset_value = self.get_asset_value(current_date, data)
+        return self.cash + asset_value
