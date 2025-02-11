@@ -8,24 +8,16 @@ from core.backtester import BackTester
 
 
 def main():
-    # 1) 读取数据(示例：中证500的日行情)
-    #df = pd.read_csv("../test/dataset/index_daily_中证500.csv")
-    # 假设 CSV 中有 'ts_code', 'trade_date', 'close' 等列
-    #df["trade_date"] = pd.to_datetime(df["trade_date"], format="%Y%m%d")
-    #df.set_index("trade_date", inplace=True)
-    #df.sort_index(inplace=True)
-
     data_dict = {
-                    "bar": {
-                        "path": "../test/dataset/index_daily_中证500.csv",
-                        "col_mapping": {
-                            "symbol": "ts_code",
-                        }
-                    },
-               }
+        "bar": {
+            "path": "../test/dataset/index_daily_中证500.csv",
+            "col_mapping": {
+                "symbol": "ts_code",
+            },
+        },
+    }
 
     hub = LocalDataHub(data_dict)
-    print(f"hub columns:{hub.get_bar().columns}")
 
     # 2) 构造公共模块
     position_sizer = FullCashPositionSizer()
@@ -36,7 +28,6 @@ def main():
     ma_strategy = MovingAverageStrategy(
         hub=hub,
         indicator="close",
-        asset_col="ts_code",
         ma_buy=720,
         ma_sell=180,
         buy_bias=-0.3,
