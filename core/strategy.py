@@ -4,6 +4,37 @@ import pandas as pd
 from core.datahub import Datahub
 
 
+class Signal:
+    """
+    Signal 数据封装类，用于包装信号 DataFrame，并对数据结构进行验证
+    """
+    # 定义必须包含的列和索引层级（可以根据需要调整）
+    REQUIRED_COLUMNS = {'signal'}
+    REQUIRED_INDEX = {'trade_date', 'symbol'}
+
+    def __init__(self, df: pd.DataFrame, current_time: pd.Timestamp):
+        self._validate(df, current_time)
+        self.df = df
+
+    def _validate(self, df: pd.DataFrame, current_time: pd.Timestamp):
+        missing_cols = self.REQUIRED_COLUMNS - set(df.columns)
+        missing_index = self.REQUIRED_INDEX - set(df.index.names)
+        if missing_cols:
+            raise ValueError(f"Signal 数据缺少必需的列: {missing_cols}")
+        if missing_index:
+            raise ValueError(f"Signal 数据缺少必需的索引: {missing_index}")
+        # 检查索引中的日期是否存在未来数据
+        trade_dates = df.index.get_level_values('trade_date')
+        if (trade_dates > current_time).any():
+            warnings.warn("Signal 数据包含未来数据", UserWarning)
+
+    def get(self):
+        return self.df
+
+    def __repr__(self):
+        return f"<Signal: {self.df.shape[0]} 条记录>"
+
+
 class Strategy(ABC):
     """
     策略基类
@@ -17,7 +48,7 @@ class Strategy(ABC):
     @abstractmethod
     def generate_signals(self,
                          current_time: pd.Timestamp,
-                         **kwargs) -> pd.DataFrame:
+                         **kwargs) -> Signal:
         """
         必须由子类实现的方法，用于生成交易信号。
 
@@ -26,7 +57,8 @@ class Strategy(ABC):
             **kwargs: 策略参数（如均线窗口、偏离阈值等）
 
         Returns:
-            pd.DataFrame:
+            Signal: 信号对象，包含信号 DataFrame
+                Signal.get():
                 - index: 多层索引，其中必须包含 'trade_date' 和 'symbol'
                 - columns: 至少包含 ['asset','signal'] 两列:
                     * 'asset': 标的名称或代码
@@ -34,29 +66,6 @@ class Strategy(ABC):
                 - 其他列可选，如 'message', 'indicator_value'...
         """
         pass
-
-    def validate_signals_format(self,
-                                signals: pd.DataFrame,
-                                current_time: pd.Timestamp,
-                                ):
-        """
-        检查返回的 DataFrame 是否符合必要的格式，并且确保信号不包含未来的数据。
-
-        参数:
-            signals: 策略生成的信号 DataFrame
-            current_time: 当前回测时间（pd.Timestamp），所有信号的 trade_date 均应 <= current_time
-        """
-        missing_cols = self.REQUIRED_COLUMNS - set(signals.columns)
-        missing_index = self.REQUIRED_INDEX - set(signals.index.names)
-        if missing_cols:
-            raise ValueError(f"Strategy signals missing required columns: {missing_cols}")
-        if missing_index:
-            raise ValueError(f"Strategy signals missing required index: {missing_index}")
-
-        # 检查是否包含未来数据: 取出索引中 trade_date 这一层进行比较
-        trade_dates = signals.index.get_level_values('trade_date')
-        if (trade_dates > current_time).any():
-            warnings.warn("策略信号中包含未来数据，请检查策略逻辑是否存在前瞻性偏差。", UserWarning)
 
 
 class MovingAverageStrategy(Strategy):
@@ -78,13 +87,11 @@ class MovingAverageStrategy(Strategy):
         self.buy_bias = buy_bias
         self.sell_bias = sell_bias
 
-    def generate_signals(
-            self,
-            current_time: pd.Timestamp,
-    ) -> pd.DataFrame:
+    def generate_signals(self, current_time: pd.Timestamp, **kwargs) -> Signal:
         """
         使用父类的签名：def generate_signals(self, data: pd.DataFrame, **kwargs)
         通过 kwargs 获取策略所需的具体参数。
+        :param current_time:
         """
 
         # 1) 从 kwargs 中获取所需参数，若不存在则设默认值
@@ -121,5 +128,4 @@ class MovingAverageStrategy(Strategy):
         }, index=data.index)
 
         # 6) 校验格式
-        self.validate_signals_format(output, current_time)
-        return output
+        return Signal(output, current_time)

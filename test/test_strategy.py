@@ -29,5 +29,5 @@ def test_demo_strategy(hub):
         buy_bias=-0.3,
         sell_bias=0.15,
     )
-    signals = ma_strategy.generate_signals(current_time=pd.Timestamp("2023-01-01"))
+    signals = ma_strategy.generate_signals(current_time=pd.Timestamp("2023-01-01")).get()
     print(f"\n=====交易信号=====\n{signals}")
