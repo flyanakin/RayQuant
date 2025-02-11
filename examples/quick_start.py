@@ -1,7 +1,7 @@
 import pandas as pd
 from core.datahub import LocalDataHub
 from core.strategy import MovingAverageStrategy
-from core.position_manager import AllInPositionManager
+from core.position_manager import EqualWeightPositionManager
 from core.broker import Broker
 from core.portfolio import Portfolio
 from core.backtester import BackTester
@@ -20,8 +20,7 @@ def main():
     hub = LocalDataHub(data_dict)
 
     # 2) 构造公共模块
-    position_sizer = AllInPositionManager()
-    broker = Broker()
+    position_manager = EqualWeightPositionManager()
     portfolio = Portfolio(initial_cash=1000000)
 
     # 3) 试用 MovingAverageStrategy
@@ -33,7 +32,12 @@ def main():
         buy_bias=-0.3,
         sell_bias=0.15,
     )
-    backtester = BackTester(ma_strategy, position_sizer, broker, portfolio, hub)
+    backtester = BackTester(
+        data=hub,
+        strategy=ma_strategy,
+        position_manager=position_manager,
+        portfolio=portfolio,
+    )
     result_ma = backtester.run_backtest()
     print("=== MA 策略结果 ===")
     print(result_ma.tail(10))

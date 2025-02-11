@@ -124,33 +124,34 @@ class Datahub(ABC):
         :param query: 其他查询条件，预留参数
         :return: 符合条件的行情数据
         """
-        # 初始化筛选条件
+        # 验证日期有效性
+        if current_date and not isinstance(current_date, pd.Timestamp):
+            raise ValueError("current_date must be a pd.Timestamp object.")
+        if start_date and not isinstance(start_date, pd.Timestamp):
+            raise ValueError("start_date must be a pd.Timestamp object.")
+        if end_date and not isinstance(end_date, pd.Timestamp):
+            raise ValueError("end_date must be a pd.Timestamp object.")
+        if start_date and end_date and start_date > end_date:
+            raise ValueError("start_date should not be later than end_date.")
+
+        # 构建查询条件字符串
         conditions = []
-
-        # 处理标的符号筛选
         if symbol:
-            conditions.append(self.bar_df.index.get_level_values('symbol') == symbol)
-
-        # 处理日期范围筛选
+            conditions.append(f"symbol == '{symbol}'")
         if current_date:
-            conditions.append(self.bar_df.index.get_level_values('trade_date') == pd.to_datetime(current_date))
+            conditions.append(f"trade_date == '{current_date}'")
         else:
-            trade_dates = self.bar_df.index.get_level_values('trade_date')
-            if start_date and end_date:
-                conditions.append((trade_dates >= start_date) & (trade_dates <= end_date))
-            elif start_date:
-                conditions.append(trade_dates >= start_date)
-            elif end_date:
-                conditions.append(trade_dates <= end_date)
+            if start_date:
+                conditions.append(f"trade_date >= '{start_date}'")
+            if end_date:
+                conditions.append(f"trade_date <= '{end_date}'")
 
-        # 应用所有筛选条件
-        if conditions:
-            filtered_df = self.bar_df.loc[pd.Series(True, index=self.bar_df.index)]
-            for condition in conditions:
-                filtered_df = filtered_df.loc[condition]
-            return filtered_df
+        # 使用 query 方法进行筛选
+        query_string = " & ".join(conditions) if conditions else None
+        if query_string:
+            return self.bar_df.query(query_string)
         else:
-            return self.bar_df
+            return self.bar_df.copy()  # 返回数据副本以防止原始数据被修改
 
 
 class LocalDataHub(Datahub):

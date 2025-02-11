@@ -100,7 +100,6 @@ class MovingAverageStrategy(Strategy):
         ma_sell = self.ma_sell
         buy_bias = self.buy_bias
         sell_bias = self.sell_bias
-
         data = self.hub.get_bar(end_date=current_time)
 
         # 2) 计算长短均线
@@ -115,7 +114,6 @@ class MovingAverageStrategy(Strategy):
         data['signal'] = None
         data.loc[data['buy_bias_val'] < buy_bias, 'signal'] = 'BUY'
         data.loc[data['sell_bias_val'] > sell_bias, 'signal'] = 'SELL'
-        print(data.columns)
 
         # 5) 整理输出
         output = pd.DataFrame({
