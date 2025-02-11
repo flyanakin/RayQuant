@@ -110,9 +110,9 @@ class Datahub(ABC):
             yield dt, self.get_data_by_date(dt)
 
     def get_bar(self,
-                current_date: str = None,
-                start_date: str = None,
-                end_date: str = None,
+                current_date: pd.Timestamp = None,
+                start_date: pd.Timestamp = None,
+                end_date: pd.Timestamp = None,
                 symbol: str = None,
                 query: str = None) -> pd.DataFrame:
         """
@@ -137,14 +137,14 @@ class Datahub(ABC):
         else:
             trade_dates = self.bar_df.index.get_level_values('trade_date')
             if start_date and end_date:
-                start_date = pd.to_datetime(start_date)
-                end_date = pd.to_datetime(end_date)
+                #start_date = pd.to_datetime(start_date)
+                #end_date = pd.to_datetime(end_date)
                 conditions.append((trade_dates >= start_date) & (trade_dates <= end_date))
             elif start_date:
-                start_date = pd.to_datetime(start_date)
+                #start_date = pd.to_datetime(start_date)
                 conditions.append(trade_dates >= start_date)
             elif end_date:
-                end_date = pd.to_datetime(end_date)
+                #end_date = pd.to_datetime(end_date)
                 conditions.append(trade_dates <= end_date)
 
         # 应用所有筛选条件
