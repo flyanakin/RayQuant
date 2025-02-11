@@ -216,3 +216,40 @@ def test_get_bar_no_data(csv_files, tmp_path):
     assert result.empty
     result = hub.get_bar(symbol="999999")  # 一个不存在的符号
     assert result.empty
+
+
+def test_get_bar_with_start_date_only(csv_files):
+    """
+    测试 get_bar 方法：
+      - 当仅提供 start_date 时，应返回从 start_date 到最后的所有数据。
+    """
+    hub = BarOnlyDataHub(csv_files)
+    result = hub.get_bar(start_date="2025-01-01")
+    expected = pd.read_csv(csv_files['bar']['path'])
+    mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
+    expected.rename(columns=mapping, inplace=True)
+    expected['trade_date'] = pd.to_datetime(expected['trade_date'])
+    expected.set_index(['trade_date', 'symbol'], inplace=True)
+    expected.sort_index(inplace=True)
+    # 选择从指定开始日期到数据集结束的数据
+    expected = expected.loc[(slice("2025-01-01", None), slice(None)), :]
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_get_bar_with_end_date_only(csv_files):
+    """
+    测试 get_bar 方法：
+      - 当仅提供 end_date 时，应返回从数据集开始到 end_date 的所有数据。
+    """
+    hub = BarOnlyDataHub(csv_files)
+    result = hub.get_bar(end_date="2025-01-02")
+    expected = pd.read_csv(csv_files['bar']['path'])
+    mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
+    expected.rename(columns=mapping, inplace=True)
+    expected['trade_date'] = pd.to_datetime(expected['trade_date'])
+    expected.set_index(['trade_date', 'symbol'], inplace=True)
+    expected.sort_index(inplace=True)
+    # 选择从数据集开始到指定结束日期的数据
+    expected = expected.loc[(slice(None, "2025-01-02"), slice(None)), :]
+    pd.testing.assert_frame_equal(result, expected)
+

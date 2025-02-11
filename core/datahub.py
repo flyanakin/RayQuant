@@ -134,11 +134,18 @@ class Datahub(ABC):
         # 处理日期范围筛选
         if current_date:
             conditions.append(self.bar_df.index.get_level_values('trade_date') == pd.to_datetime(current_date))
-        elif start_date and end_date:
-            start_date = pd.to_datetime(start_date)
-            end_date = pd.to_datetime(end_date)
+        else:
             trade_dates = self.bar_df.index.get_level_values('trade_date')
-            conditions.append((trade_dates >= start_date) & (trade_dates <= end_date))
+            if start_date and end_date:
+                start_date = pd.to_datetime(start_date)
+                end_date = pd.to_datetime(end_date)
+                conditions.append((trade_dates >= start_date) & (trade_dates <= end_date))
+            elif start_date:
+                start_date = pd.to_datetime(start_date)
+                conditions.append(trade_dates >= start_date)
+            elif end_date:
+                end_date = pd.to_datetime(end_date)
+                conditions.append(trade_dates <= end_date)
 
         # 应用所有筛选条件
         if conditions:
