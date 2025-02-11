@@ -37,6 +37,7 @@ class Datahub(ABC):
         self.bar_df = None  # 用于存放时序数据
         self.fundamental_df = None  # 用于存放财报数据
         self.info_df = None  # 用于存放元数据
+        self.load_all_data()
 
     @abstractmethod
     def load_bar_data(self):
@@ -67,9 +68,13 @@ class Datahub(ABC):
         一键加载所有数据。
         这里不是抽象方法，因为基类可直接调用子类实现的抽象方法。
         """
+        if 'bar' not in self.data_dict:
+            raise ValueError("bar data not found in data_dict.")
+        if 'info' in self.data_dict:
+            self.load_info_data()
+        if 'fundamental' in self.data_dict:
+            self.load_fundamental_data()
         self.load_bar_data()
-        self.load_fundamental_data()
-        self.load_info_data()
 
     def get_main_timeline(self):
         """
@@ -105,17 +110,47 @@ class Datahub(ABC):
             yield dt, self.get_data_by_date(dt)
 
     def get_bar(self,
-                current_date,
-                start_date=None,
-                end_date=None
-                ) -> pd.DataFrame:
+                current_date: str = None,
+                start_date: str = None,
+                end_date: str = None,
+                symbol: str = None,
+                query: str = None) -> pd.DataFrame:
         """
-        在特定日期区间，返回所有标的的财务数据快照(行索引= symbol)。
+        在特定日期区间，返回所有标的的行情数据快照(行索引= symbol)。
+        :param current_date: 当前或特定的单一日期
+        :param start_date: 起始日期
+        :param end_date: 结束日期
+        :param symbol: 标的的唯一标识
+        :param query: 其他查询条件，预留参数
+        :return: 符合条件的行情数据
         """
-        pass
+        # 初始化筛选条件
+        conditions = []
+
+        # 处理标的符号筛选
+        if symbol:
+            conditions.append(self.bar_df.index.get_level_values('symbol') == symbol)
+
+        # 处理日期范围筛选
+        if current_date:
+            conditions.append(self.bar_df.index.get_level_values('trade_date') == pd.to_datetime(current_date))
+        elif start_date and end_date:
+            start_date = pd.to_datetime(start_date)
+            end_date = pd.to_datetime(end_date)
+            trade_dates = self.bar_df.index.get_level_values('trade_date')
+            conditions.append((trade_dates >= start_date) & (trade_dates <= end_date))
+
+        # 应用所有筛选条件
+        if conditions:
+            filtered_df = self.bar_df.loc[pd.Series(True, index=self.bar_df.index)]
+            for condition in conditions:
+                filtered_df = filtered_df.loc[condition]
+            return filtered_df
+        else:
+            return self.bar_df
 
 
-class BaseLocalDataHub(Datahub):
+class LocalDataHub(Datahub):
     """
     从按年拆分的低频CSV中加载数据，并提供按日期迭代的接口
     一个具体子类，必须实现3个抽象方法：
@@ -124,10 +159,6 @@ class BaseLocalDataHub(Datahub):
       - load_meta_data()
     否则会报错。
     """
-    def __init__(self):
-        super().__init__(data_dict={})
-        self.load_all_data()
-
     def load_bar_data(self):
         path = self.data_dict['bar']['path']
         if not os.path.exists(path):

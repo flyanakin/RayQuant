@@ -1,6 +1,7 @@
 # strategy.py
 from abc import ABC, abstractmethod
 import pandas as pd
+from core.datahub import Datahub
 
 class Strategy(ABC):
     """
@@ -9,7 +10,7 @@ class Strategy(ABC):
       - 任何继承本类的策略，都需要实现 generate_signals()，并返回一个包含特定列的 DataFrame.
     """
 
-    REQUIRED_COLUMNS = {'asset', 'signal'}
+    REQUIRED_COLUMNS = {'signal'}
 
     @abstractmethod
     def generate_signals(self, **kwargs) -> pd.DataFrame:
@@ -43,7 +44,7 @@ class MovingAverageStrategy(Strategy):
     均线策略示例：当向下偏离长周期均线到一定程度时买入，向上偏离短周期均线到一定程度时卖出。
     """
     def __init__(self,
-                 data: pd.DataFrame,
+                 hub: Datahub,
                  indicator: str = 'close',
                  asset_col: str = 'asset',
                  ma_buy: int = 720,
@@ -51,7 +52,7 @@ class MovingAverageStrategy(Strategy):
                  buy_bias: float = -0.3,
                  sell_bias: float = 0.15
                  ):
-        self.data = data
+        self.hub = hub
         self.indicator = indicator
         self.asset_col = asset_col
         self.ma_buy = ma_buy
@@ -67,13 +68,12 @@ class MovingAverageStrategy(Strategy):
 
         # 1) 从 kwargs 中获取所需参数，若不存在则设默认值
         indicator = self.indicator
-        asset_col = self.asset_col
         ma_buy = self.ma_buy
         ma_sell = self.ma_sell
         buy_bias = self.buy_bias
         sell_bias = self.sell_bias
 
-        data = self.data
+        data = self.hub.get_bar()
 
         # 2) 计算长短均线
         data['buy_ma'] = data[indicator].rolling(window=ma_buy).mean()
@@ -87,12 +87,12 @@ class MovingAverageStrategy(Strategy):
         data['signal'] = None
         data.loc[data['buy_bias_val'] < buy_bias, 'signal'] = 'BUY'
         data.loc[data['sell_bias_val'] > sell_bias, 'signal'] = 'SELL'
+        print(data.columns)
 
         # 5) 整理输出
         output = pd.DataFrame({
-            'asset': data[asset_col],
             'signal': data['signal'],
-            'indicator': data[indicator],  # 可选
+            'indicator': data['close'],  # 可选
             'buy_ma': data['buy_ma'],
             'sell_ma': data['sell_ma'],
             'buy_bias_val': data['buy_bias_val'],

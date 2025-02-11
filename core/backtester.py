@@ -5,6 +5,8 @@ from core.position_sizer import PositionSizer
 from core.broker import Broker
 # 关键：仅依赖抽象基类 Strategy，而非具体的 MovingAverageStrategy
 from core.strategy import Strategy
+from core.datahub import Datahub
+
 
 class BackTester:
     def __init__(
@@ -13,20 +15,20 @@ class BackTester:
             position_sizer: PositionSizer,
             broker: Broker,
             portfolio: Portfolio,
-            data: pd.DataFrame
+            hub: Datahub
     ):
         """
         :param strategy: 任意符合 Strategy 接口的对象
         :param position_sizer: 将信号转成订单
         :param broker: 负责撮合交易
         :param portfolio: 组合信息
-        :param data: 行情(用于撮合和计算净值)
+        :param hub: 行情(用于撮合和计算净值)
         """
         self.strategy = strategy
         self.position_sizer = position_sizer
         self.broker = broker
         self.portfolio = portfolio
-        self.data = data
+        self.hub = hub
 
     def run_backtest(self) -> pd.DataFrame:
         """
@@ -41,15 +43,15 @@ class BackTester:
         signals = self.strategy.generate_signals()
 
         # 2) 转换为订单
-        orders = self.position_sizer.transform_signals_to_orders(signals, self.portfolio, self.data)
+        orders = self.position_sizer.transform_signals_to_orders(signals, self.portfolio, self.hub.get_bar())
 
         # 3) Broker 执行订单
-        self.broker.execute_orders(orders, self.data, self.portfolio)
+        self.broker.execute_orders(orders, self.hub.get_bar(), self.portfolio)
 
         # 4) 统计每日净值
         daily_values = []
-        for date in self.data.index:
-            total_val = self.portfolio.total_value(date, self.data)
+        for date in self.hub.get_bar().index:
+            total_val = self.portfolio.total_value(date, self.hub.get_bar())
             daily_values.append({'date': date, 'total_value': total_val})
 
         result_df = pd.DataFrame(daily_values).set_index('date')

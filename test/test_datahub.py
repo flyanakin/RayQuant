@@ -1,6 +1,6 @@
 import pandas as pd
 import pytest
-from core.datahub import BaseLocalDataHub
+from core.datahub import LocalDataHub
 
 # --------------------------
 # pytest 测试用例
@@ -16,16 +16,16 @@ def csv_files(tmp_path):
     bar_csv = tmp_path / "bar.csv"
     bar_csv.write_text(
         "date,ts_code,open,close,volume\n"
-        "2025-01-01,000001,10,12,1000\n"
-        "2025-01-01,000002,20,18,1500\n"
-        "2025-01-02,000001,12,13,1100\n"
-        "2025-01-02,000002,18,17,1400\n"
+        "2025-01-01,000001.SH,10,12,1000\n"
+        "2025-01-01,000002.SH,20,18,1500\n"
+        "2025-01-02,000001.SH,12,13,1100\n"
+        "2025-01-02,000002.SH,18,17,1400\n"
     )
 
     # 创建临时 info CSV 文件
     info_csv = tmp_path / "info.csv"
     info_csv.write_text(
-        "symbol,name,industry\n" "000001,CompanyA,Tech\n" "000002,CompanyB,Finance\n"
+        "symbol,name,industry\n" "000001.SH,CompanyA,Tech\n" "000002.SH,CompanyB,Finance\n"
     )
 
     data_dict = {
@@ -46,7 +46,7 @@ def csv_files(tmp_path):
 # --------------------------
 
 
-class TestLocalDataHub(BaseLocalDataHub):
+class TestLocalDataHub(LocalDataHub):
     """
     用于测试 load_all_data 及其他接口
     """
@@ -61,11 +61,11 @@ class TestLocalDataHub(BaseLocalDataHub):
     def load_fundamental_data(self):
         # 构造一个简单的财报数据 DataFrame
         self.fundamental_df = pd.DataFrame(
-            {"symbol": ["000001", "000002"], "earnings": [1.0, 2.0]}
+            {"symbol": ["000001.SH", "000002.SH"], "earnings": [1.0, 2.0]}
         ).set_index("symbol")
 
 
-class BarOnlyDataHub(BaseLocalDataHub):
+class BarOnlyDataHub(LocalDataHub):
     """
     仅加载时序数据，用于测试 get_data_by_date 与 timeseries_iterator 方法
     """
@@ -95,7 +95,7 @@ def test_load_all_data(csv_files):
 
     # 检查财报数据（fundamental_df）
     expected_fundamental = pd.DataFrame(
-        {"symbol": ["000001", "000002"], "earnings": [1.0, 2.0]}
+        {"symbol": ["000001.SH", "000002.SH"], "earnings": [1.0, 2.0]}
     ).set_index("symbol")
     pd.testing.assert_frame_equal(hub.fundamental_df, expected_fundamental)
 
@@ -150,3 +150,69 @@ def test_timeseries_iterator(csv_files):
     # 检查每个日期对应的快照数据的索引中包含 'symbol'
     for dt, df in timeline:
         assert "symbol" in df.index.names
+
+
+def test_get_bar_single_date(csv_files):
+    """
+    测试 get_bar 方法：
+      - 当请求单个特定日期时，应返回该日期的所有数据。
+    """
+    hub = BarOnlyDataHub(csv_files)
+    result = hub.get_bar(current_date="2025-01-01")
+    expected = pd.read_csv(csv_files['bar']['path'])
+    mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
+    expected.rename(columns=mapping, inplace=True)
+    expected['trade_date'] = pd.to_datetime(expected['trade_date'])
+    expected.set_index(['trade_date', 'symbol'], inplace=True)
+    expected.sort_index(inplace=True)
+    # 这里改为直接筛选日期层级，但保持两层索引
+    expected = expected.loc[(slice("2025-01-01", "2025-01-01"), slice(None)), :]
+    print(f"expected: {expected}")
+    print(f"result: {result}")
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_get_bar_date_range(csv_files):
+    """
+    测试 get_bar 方法：
+      - 当请求一个日期范围时，应返回该范围内的所有数据。
+    """
+    hub = BarOnlyDataHub(csv_files)
+    result = hub.get_bar(start_date="2025-01-01", end_date="2025-01-02")
+    expected = pd.read_csv(csv_files['bar']['path'])
+    mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
+    expected.rename(columns=mapping, inplace=True)
+    expected['trade_date'] = pd.to_datetime(expected['trade_date'])
+    expected.set_index(['trade_date', 'symbol'], inplace=True)
+    expected.sort_index(inplace=True)
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_get_bar_specific_symbol(csv_files):
+    """
+    测试 get_bar 方法：
+      - 当指定特定标的符号时，应只返回该标的的数据。
+    """
+    hub = BarOnlyDataHub(csv_files)
+    result = hub.get_bar(symbol="000002.SH")
+    expected = pd.read_csv(csv_files['bar']['path'])
+    mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
+    expected.rename(columns=mapping, inplace=True)
+    expected['trade_date'] = pd.to_datetime(expected['trade_date'])
+    expected.set_index(['trade_date', 'symbol'], inplace=True)
+    expected.sort_index(inplace=True)
+    # 使用 loc 来保持双层索引结构
+    expected = expected.loc[(slice(None), '000002.SH'), :]
+    pd.testing.assert_frame_equal(result, expected)
+
+
+def test_get_bar_no_data(csv_files, tmp_path):
+    """
+    测试 get_bar 方法：
+      - 当请求的日期或符号不存在时，应返回空 DataFrame。
+    """
+    hub = BarOnlyDataHub(csv_files)
+    result = hub.get_bar(current_date="2025-01-03")  # 一个不存在的日期
+    assert result.empty
+    result = hub.get_bar(symbol="999999")  # 一个不存在的符号
+    assert result.empty
