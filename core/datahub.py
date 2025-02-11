@@ -110,14 +110,44 @@ class Datahub(ABC):
             yield dt, self.get_data_by_date(dt)
 
     def get_bar(self,
-                current_date=None,
-                start_date=None,
-                end_date=None
-                ) -> pd.DataFrame:
+                current_date: str = None,
+                start_date: str = None,
+                end_date: str = None,
+                symbol: str = None,
+                query: str = None) -> pd.DataFrame:
         """
-        在特定日期区间，返回所有标的的财务数据快照(行索引= symbol)。
+        在特定日期区间，返回所有标的的行情数据快照(行索引= symbol)。
+        :param current_date: 当前或特定的单一日期
+        :param start_date: 起始日期
+        :param end_date: 结束日期
+        :param symbol: 标的的唯一标识
+        :param query: 其他查询条件，预留参数
+        :return: 符合条件的行情数据
         """
-        return self.bar_df
+        # 初始化筛选条件
+        conditions = []
+
+        # 处理标的符号筛选
+        if symbol:
+            conditions.append(self.bar_df.index.get_level_values('symbol') == symbol)
+
+        # 处理日期范围筛选
+        if current_date:
+            conditions.append(self.bar_df.index.get_level_values('trade_date') == pd.to_datetime(current_date))
+        elif start_date and end_date:
+            start_date = pd.to_datetime(start_date)
+            end_date = pd.to_datetime(end_date)
+            trade_dates = self.bar_df.index.get_level_values('trade_date')
+            conditions.append((trade_dates >= start_date) & (trade_dates <= end_date))
+
+        # 应用所有筛选条件
+        if conditions:
+            filtered_df = self.bar_df.loc[pd.Series(True, index=self.bar_df.index)]
+            for condition in conditions:
+                filtered_df = filtered_df.loc[condition]
+            return filtered_df
+        else:
+            return self.bar_df
 
 
 class LocalDataHub(Datahub):
