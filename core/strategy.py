@@ -9,7 +9,7 @@ class Signal:
     Signal 数据封装类，用于包装信号 DataFrame，并对数据结构进行验证
     """
     # 定义必须包含的列和索引层级（可以根据需要调整）
-    REQUIRED_COLUMNS = {'signal'}
+    REQUIRED_COLUMNS = {'close', 'signal'}
     REQUIRED_INDEX = {'trade_date', 'symbol'}
 
     def __init__(self, df: pd.DataFrame, current_time: pd.Timestamp):
@@ -121,11 +121,11 @@ class MovingAverageStrategy(Strategy):
         output = pd.DataFrame({
             'signal': data['signal'],
             'indicator': data[indicator],  # 可选
+            'close': data['close'],
             'buy_ma': data['buy_ma'],
             'sell_ma': data['sell_ma'],
             'buy_bias_val': data['buy_bias_val'],
             'sell_bias_val': data['sell_bias_val']
         }, index=data.index)
 
-        # 6) 校验格式
         return Signal(output, current_time)

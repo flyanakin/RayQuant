@@ -8,10 +8,16 @@ class Portfolio:
     由三部分构成:
       1) self.cash (float): 剩余可用资金
       2) self.asset (pd.DataFrame): 当前持仓, 包含 [asset, quantity, cost_price]
+        - asset: 标的名称或代码
+        - quantity: 持仓数量(注意是股数而不是手数)
+        - cost_price: 加权成本价
       3) self.trade_log (pd.DataFrame): 交易记录, 包含 [asset, trade_date, trade_qty, trade_price]
+        - trade_qty: 买入为正, 卖出为负
     """
 
-    def __init__(self, initial_cash: float = 1000000.0):
+    def __init__(self,
+                 initial_cash:
+                 float = 1000000.0):
         """
         初始化组合:
           :param initial_cash: 初始资金

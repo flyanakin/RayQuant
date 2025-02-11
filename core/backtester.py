@@ -1,7 +1,7 @@
 # backtester.py
 import pandas as pd
 from core.portfolio import Portfolio
-from core.position_sizer import PositionSizer
+from core.position_manager import PositionManager
 from core.broker import Broker
 # 关键：仅依赖抽象基类 Strategy，而非具体的 MovingAverageStrategy
 from core.strategy import Strategy
@@ -12,7 +12,7 @@ class BackTester:
     def __init__(
             self,
             strategy: Strategy,           # <-- 依赖抽象基类，任何子类都可传进来
-            position_sizer: PositionSizer,
+            position_sizer: PositionManager,
             broker: Broker,
             portfolio: Portfolio,
             hub: Datahub
