@@ -1,8 +1,6 @@
-import pandas as pd
 from core.datahub import LocalDataHub
 from core.strategy import MovingAverageStrategy
 from core.position_manager import EqualWeightPositionManager
-from core.broker import Broker
 from core.portfolio import Portfolio
 from core.backtester import BackTester
 
@@ -27,8 +25,8 @@ def main():
     ma_strategy = MovingAverageStrategy(
         hub=hub,
         indicator="close",
-        ma_buy=10,
-        ma_sell=5,
+        ma_buy=720,
+        ma_sell=180,
         buy_bias=-0.3,
         sell_bias=0.15,
     )

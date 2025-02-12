@@ -57,7 +57,7 @@ class BackTester:
 
             total_val = self.portfolio.total_value(current_date=dt, data=self.data)
             daily_values.append({'date': dt, 'total_value': total_val})
-            print(f"当前日期:{dt}, 组合总价值:{total_val}, 当前现金：{self.portfolio.cash}")
+            print(f"当前日期:{dt}, 组合总价值:{round(total_val)}, 当前现金：{round(self.portfolio.cash)}")
 
         end_time = time.time()
 
