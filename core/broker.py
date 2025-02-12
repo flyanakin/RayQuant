@@ -10,6 +10,7 @@ class Order:
     def __init__(self, df: pd.DataFrame):
         self._validate(df)
         self.df = df
+        self.__print_orders()
 
     def _validate(self, df: pd.DataFrame):
         missing_cols = self.REQUIRED_COLUMNS - set(df.columns)
@@ -18,6 +19,12 @@ class Order:
 
     def get(self):
         return self.df
+
+    def __print_orders(self):
+        if self.df.shape[0] > 0:
+            print(f"产生订单：{self.df}")
+        else:
+            pass
 
     def __repr__(self):
         return f"<Order: {self.df.shape[0]} 条记录>"
