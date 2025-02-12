@@ -1,4 +1,3 @@
-# test_portfolio.py
 import pytest
 import pandas as pd
 from core.portfolio import Portfolio
@@ -7,17 +6,22 @@ from core.broker import Order
 
 # Dummy Datahub，用于测试 get_asset_value 和 total_value
 class DummyDatahub:
-    def get_bar(self, symbol, current_date):
-        # 如果 symbol 为 'A'，返回一个包含 close=150 的 DataFrame；否则返回空 DataFrame
-        if symbol == 'A':
-            return pd.DataFrame([{'close': 150}])
-        else:
-            return pd.DataFrame()
-
+    def get_bars(self, current_date):
+        """
+        模拟在给定日期能拿到的行情数据。
+        这里简单返回一个包含 close=150 的 DataFrame，
+        方便测试时让持仓“看上去”都有价格可用。
+        """
+        # 你也可以根据 current_date 做一些判断，决定返回不同的价格
+        return pd.DataFrame([{'close': 150}])
 
 # Dummy Datahub，始终返回空 DataFrame，用于测试当行情数据缺失时的逻辑
 class DummyEmptyDatahub:
-    def get_bar(self, symbol, current_date):
+    def get_bars(self, current_date):
+        """
+        模拟在给定日期拿不到任何行情数据（空 DataFrame），
+        用于测试 fallback 到 current_price 的逻辑。
+        """
         return pd.DataFrame()
 
 

@@ -146,7 +146,6 @@ class Portfolio:
         # TODO:去掉循环
         df_bar = data.get_bars(current_date=current_date)
         for _, row in self.asset.iterrows():
-            asset = row['asset']
             quantity = row['quantity']
             # 获取指定标的在当前日期的行情数据
             if df_bar.empty:
