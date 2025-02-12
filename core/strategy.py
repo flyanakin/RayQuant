@@ -126,6 +126,12 @@ class MovingAverageStrategy(Strategy):
         )
 
         # 5) 整理输出
-        output = data[['signal', indicator, 'close', 'buy_ma', 'sell_ma', 'buy_bias_val', 'sell_bias_val']].copy()
+        full_output = data[['signal', indicator, 'close', 'buy_ma', 'sell_ma', 'buy_bias_val', 'sell_bias_val']].copy()
+        # 只保留current_time的信号
+        output = full_output.xs(
+                    key=current_time,
+                    level='trade_date',
+                    drop_level=False
+                )
 
         return Signal(output, current_time)

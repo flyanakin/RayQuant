@@ -5,6 +5,7 @@ from core.position_manager import PositionManager
 from core.broker import Broker
 from core.strategy import Strategy
 from core.datahub import Datahub
+import time
 
 
 class BackTester:
@@ -35,18 +36,33 @@ class BackTester:
         for date_data in self.data.timeseries_iterator():
             #print(f"date: {date_data}")
             #print(f"type: {type(date_data)}")
+            start_time = time.time()  # 开始计时
             dt, data = date_data
             signals = self.strategy.generate_signals(dt)
+            transform_time = time.time()  # 生成信号后的时间
+
             orders = self.position_manager.transform_signals_to_orders(
                 signals=signals,
                 portfolio=self.portfolio,
                 data=self.data,
                 current_time=dt,
             )
+            orders_time = time.time()  # 转换信号为订单后的时间
+
             self.portfolio.buy(orders)
             self.portfolio.sell(orders)
+            trading_time = time.time()  # 买卖操作后的时间
+
             total_val = self.portfolio.total_value(current_date=dt, data=self.data)
             daily_values.append({'date': dt, 'total_value': total_val})
+            valuation_time = time.time()  # 计算总价值后的时间
+            print(f"当前日期:{dt}, 组合总价值:{total_val}")
+
+            # 输出每个步骤的执行时间
+            #print(f"生成信号耗时: {transform_time - start_time:.6f}秒")
+            #print(f"转换订单耗时: {orders_time - transform_time:.6f}秒")
+            #print(f"执行交易耗时: {trading_time - orders_time:.6f}秒")
+            #print(f"计算总价值耗时: {valuation_time - trading_time:.6f}秒")
 
         result_df = pd.DataFrame(daily_values).set_index('date')
         return result_df
