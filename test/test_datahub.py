@@ -203,6 +203,8 @@ def test_get_bar_specific_symbol(csv_files):
     expected.sort_index(inplace=True)
     # 使用 loc 来保持双层索引结构
     expected = expected.loc[(slice(None), '000002.SH'), :]
+    print(f"expected: {expected}")
+    print(f"result: {result}")
     pd.testing.assert_frame_equal(result, expected)
 
 

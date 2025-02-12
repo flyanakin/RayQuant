@@ -134,24 +134,30 @@ class Datahub(ABC):
         if start_date and end_date and start_date > end_date:
             raise ValueError("start_date should not be later than end_date.")
 
-        # 构建查询条件字符串
-        conditions = []
-        if symbol:
-            conditions.append(f"symbol == '{symbol}'")
-        if current_date:
-            conditions.append(f"trade_date == '{current_date}'")
-        else:
-            if start_date:
-                conditions.append(f"trade_date >= '{start_date}'")
-            if end_date:
-                conditions.append(f"trade_date <= '{end_date}'")
+        if query:
+            return self.bar_df.query(query)
 
-        # 使用 query 方法进行筛选
-        query_string = " & ".join(conditions) if conditions else None
-        if query_string:
-            return self.bar_df.query(query_string)
+            # 构造日期切片
+        if current_date:
+            date_slice = slice(current_date, current_date)
+        elif end_date:
+            date_slice = slice(None, end_date)
+        elif start_date:
+            date_slice = slice(start_date, None)
+        elif start_date and end_date:
+            date_slice = slice(start_date, end_date)
         else:
-            return self.bar_df.copy()  # 返回数据副本以防止原始数据被修改
+            date_slice = slice(None, None)
+
+        try:
+            if symbol:
+                # 索引顺序为 (trade_date, symbol)
+                return self.bar_df.loc[date_slice].query(f'symbol == "{symbol}"')
+            else:
+                return self.bar_df.loc[date_slice]
+        except KeyError:
+            # 没有满足条件的数据时返回空DataFrame
+            return pd.DataFrame()
 
 
 class LocalDataHub(Datahub):
