@@ -71,7 +71,7 @@ class EqualWeightPositionManager(PositionManager):
         """
         orders_list = []
         df_signals = signals.get()
-        current_prices = data.get_bar(current_date=current_time)
+        current_prices = data.get_bars(current_date=current_time)
 
         # 确保 'signal' 列为大写字符串，方便比较
         df_signals['signal'] = df_signals['signal'].astype(str).str.upper()

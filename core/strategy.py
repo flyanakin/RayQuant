@@ -107,7 +107,7 @@ class MovingAverageStrategy(Strategy):
         window = max(ma_buy, ma_sell)
         start_date = current_time - pd.Timedelta(days=window - 1)
 
-        data = self.hub.get_bar(start_date=start_date, end_date=current_time).copy()
+        data = self.hub.get_bars(start_date=start_date, end_date=current_time).copy()
 
         # 2) 计算长短均线
         # 将指标列转换为 NumPy 数组（建议提前保证数据类型合适，比如 float32 或 float64）

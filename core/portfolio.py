@@ -144,11 +144,11 @@ class Portfolio:
         """
         total_value = 0.0
         # TODO:去掉循环
+        df_bar = data.get_bars(current_date=current_date)
         for _, row in self.asset.iterrows():
             asset = row['asset']
             quantity = row['quantity']
             # 获取指定标的在当前日期的行情数据
-            df_bar = data.get_bar(symbol=asset, current_date=current_date)
             if df_bar.empty:
                 # 若无法获取行情数据，则退而求其次，使用持仓记录中的 current_price
                 price = row['current_price']

@@ -109,12 +109,12 @@ class Datahub(ABC):
         for dt in timeline:
             yield dt, self.get_data_by_date(dt)
 
-    def get_bar(self,
-                current_date: pd.Timestamp = None,
-                start_date: pd.Timestamp = None,
-                end_date: pd.Timestamp = None,
-                symbol: str = None,
-                query: str = None) -> pd.DataFrame:
+    def get_bars(self,
+                 current_date: pd.Timestamp = None,
+                 start_date: pd.Timestamp = None,
+                 end_date: pd.Timestamp = None,
+                 symbol: str = None,
+                 query: str = None) -> pd.DataFrame:
         """
         在特定日期区间，返回所有标的的行情数据快照(行索引= symbol)。
         :param current_date: 当前或特定的单一日期

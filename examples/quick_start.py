@@ -10,7 +10,7 @@ from core.backtester import BackTester
 def main():
     data_dict = {
         "bar": {
-            "path": "../test/dataset/index_daily_中证500.csv",
+            "path": "../test/dataset/index_daily.csv",
             "col_mapping": {
                 "symbol": "ts_code",
             },
@@ -21,14 +21,14 @@ def main():
 
     # 2) 构造公共模块
     position_manager = EqualWeightPositionManager()
-    portfolio = Portfolio(initial_cash=1000000)
+    portfolio = Portfolio(initial_cash=100000000)
 
     # 3) 试用 MovingAverageStrategy
     ma_strategy = MovingAverageStrategy(
         hub=hub,
         indicator="close",
-        ma_buy=720,
-        ma_sell=180,
+        ma_buy=10,
+        ma_sell=5,
         buy_bias=-0.3,
         sell_bias=0.15,
     )
