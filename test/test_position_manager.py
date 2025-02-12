@@ -138,7 +138,7 @@ def test_buy_order_sufficient_cash(portfolio_buy, current_time, datahub):
     df = pd.DataFrame(data).set_index(["trade_date", "symbol"])
     datahub.custom_bar_df = df
     datahub.load_bar_data()
-
+    print(f"hub.bar{datahub.get_bars(current_date=current_time)}")
     manager = EqualWeightPositionManager()
     order_obj = manager.transform_signals_to_orders(
         signals=signal,

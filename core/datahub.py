@@ -109,12 +109,12 @@ class Datahub(ABC):
         for dt in timeline:
             yield dt, self.get_data_by_date(dt)
 
-    def get_bar(self,
-                current_date: pd.Timestamp = None,
-                start_date: pd.Timestamp = None,
-                end_date: pd.Timestamp = None,
-                symbol: str = None,
-                query: str = None) -> pd.DataFrame:
+    def get_bars(self,
+                 current_date: pd.Timestamp = None,
+                 start_date: pd.Timestamp = None,
+                 end_date: pd.Timestamp = None,
+                 symbol: str = None,
+                 query: str = None) -> pd.DataFrame:
         """
         在特定日期区间，返回所有标的的行情数据快照(行索引= symbol)。
         :param current_date: 当前或特定的单一日期
@@ -124,33 +124,40 @@ class Datahub(ABC):
         :param query: 其他查询条件，预留参数
         :return: 符合条件的行情数据
         """
-        # 初始化筛选条件
-        conditions = []
+        # 验证日期有效性
+        if current_date and not isinstance(current_date, pd.Timestamp):
+            raise ValueError("current_date must be a pd.Timestamp object.")
+        if start_date and not isinstance(start_date, pd.Timestamp):
+            raise ValueError("start_date must be a pd.Timestamp object.")
+        if end_date and not isinstance(end_date, pd.Timestamp):
+            raise ValueError("end_date must be a pd.Timestamp object.")
+        if start_date and end_date and start_date > end_date:
+            raise ValueError("start_date should not be later than end_date.")
 
-        # 处理标的符号筛选
-        if symbol:
-            conditions.append(self.bar_df.index.get_level_values('symbol') == symbol)
+        if query:
+            return self.bar_df.query(query)
 
-        # 处理日期范围筛选
+            # 构造日期切片
         if current_date:
-            conditions.append(self.bar_df.index.get_level_values('trade_date') == pd.to_datetime(current_date))
+            date_slice = slice(current_date, current_date)
+        elif end_date:
+            date_slice = slice(None, end_date)
+        elif start_date:
+            date_slice = slice(start_date, None)
+        elif start_date and end_date:
+            date_slice = slice(start_date, end_date)
         else:
-            trade_dates = self.bar_df.index.get_level_values('trade_date')
-            if start_date and end_date:
-                conditions.append((trade_dates >= start_date) & (trade_dates <= end_date))
-            elif start_date:
-                conditions.append(trade_dates >= start_date)
-            elif end_date:
-                conditions.append(trade_dates <= end_date)
+            date_slice = slice(None, None)
 
-        # 应用所有筛选条件
-        if conditions:
-            filtered_df = self.bar_df.loc[pd.Series(True, index=self.bar_df.index)]
-            for condition in conditions:
-                filtered_df = filtered_df.loc[condition]
-            return filtered_df
-        else:
-            return self.bar_df
+        try:
+            if symbol:
+                # 索引顺序为 (trade_date, symbol)
+                return self.bar_df.loc[date_slice].query(f'symbol == "{symbol}"')
+            else:
+                return self.bar_df.loc[date_slice]
+        except KeyError:
+            # 没有满足条件的数据时返回空DataFrame
+            return pd.DataFrame()
 
 
 class LocalDataHub(Datahub):

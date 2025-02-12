@@ -158,7 +158,7 @@ def test_get_bar_single_date(csv_files):
       - 当请求单个特定日期时，应返回该日期的所有数据。
     """
     hub = BarOnlyDataHub(csv_files)
-    result = hub.get_bar(current_date=pd.to_datetime("2025-01-01"))
+    result = hub.get_bars(current_date=pd.to_datetime("2025-01-01"))
     expected = pd.read_csv(csv_files['bar']['path'])
     mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
     expected.rename(columns=mapping, inplace=True)
@@ -178,7 +178,7 @@ def test_get_bar_date_range(csv_files):
       - 当请求一个日期范围时，应返回该范围内的所有数据。
     """
     hub = BarOnlyDataHub(csv_files)
-    result = hub.get_bar(start_date=pd.to_datetime("2025-01-01"), end_date=pd.to_datetime("2025-01-02"))
+    result = hub.get_bars(start_date=pd.to_datetime("2025-01-01"), end_date=pd.to_datetime("2025-01-02"))
     expected = pd.read_csv(csv_files['bar']['path'])
     mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
     expected.rename(columns=mapping, inplace=True)
@@ -194,7 +194,7 @@ def test_get_bar_specific_symbol(csv_files):
       - 当指定特定标的符号时，应只返回该标的的数据。
     """
     hub = BarOnlyDataHub(csv_files)
-    result = hub.get_bar(symbol="000002.SH")
+    result = hub.get_bars(symbol="000002.SH")
     expected = pd.read_csv(csv_files['bar']['path'])
     mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
     expected.rename(columns=mapping, inplace=True)
@@ -203,6 +203,8 @@ def test_get_bar_specific_symbol(csv_files):
     expected.sort_index(inplace=True)
     # 使用 loc 来保持双层索引结构
     expected = expected.loc[(slice(None), '000002.SH'), :]
+    print(f"expected: {expected}")
+    print(f"result: {result}")
     pd.testing.assert_frame_equal(result, expected)
 
 
@@ -212,9 +214,9 @@ def test_get_bar_no_data(csv_files, tmp_path):
       - 当请求的日期或符号不存在时，应返回空 DataFrame。
     """
     hub = BarOnlyDataHub(csv_files)
-    result = hub.get_bar(current_date=pd.to_datetime("2025-01-03"))  # 一个不存在的日期
+    result = hub.get_bars(current_date=pd.to_datetime("2025-01-03"))  # 一个不存在的日期
     assert result.empty
-    result = hub.get_bar(symbol="999999")  # 一个不存在的符号
+    result = hub.get_bars(symbol="999999")  # 一个不存在的符号
     assert result.empty
 
 
@@ -224,7 +226,7 @@ def test_get_bar_with_start_date_only(csv_files):
       - 当仅提供 start_date 时，应返回从 start_date 到最后的所有数据。
     """
     hub = BarOnlyDataHub(csv_files)
-    result = hub.get_bar(start_date=pd.to_datetime("2025-01-01"))
+    result = hub.get_bars(start_date=pd.to_datetime("2025-01-01"))
     expected = pd.read_csv(csv_files['bar']['path'])
     mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
     expected.rename(columns=mapping, inplace=True)
@@ -242,7 +244,7 @@ def test_get_bar_with_end_date_only(csv_files):
       - 当仅提供 end_date 时，应返回从数据集开始到 end_date 的所有数据。
     """
     hub = BarOnlyDataHub(csv_files)
-    result = hub.get_bar(end_date=pd.to_datetime("2025-01-02"))
+    result = hub.get_bars(end_date=pd.to_datetime("2025-01-02"))
     expected = pd.read_csv(csv_files['bar']['path'])
     mapping = {v: k for k, v in csv_files['bar']['col_mapping'].items()}
     expected.rename(columns=mapping, inplace=True)

@@ -4,6 +4,7 @@ from core.strategy import Signal
 from core.portfolio import Portfolio
 from core.broker import Order
 from core.datahub import Datahub
+import time
 
 
 def get_min_lot(asset: str) -> int:
@@ -70,55 +71,45 @@ class EqualWeightPositionManager(PositionManager):
         """
         orders_list = []
         df_signals = signals.get()
-        current_prices = data.get_bar(current_date=current_time)
+        current_prices = data.get_bars(current_date=current_time)
 
         # 确保 'signal' 列为大写字符串，方便比较
         df_signals['signal'] = df_signals['signal'].astype(str).str.upper()
 
         # --- 处理卖出信号 ---
         sell_signals = df_signals[df_signals['signal'] == 'SELL']
-        for idx, row in sell_signals.iterrows():
-            # 从多层索引中提取标的代码，这里假设索引包含 'trade_date' 和 'symbol'
-            if isinstance(idx, tuple):
-                index_names = df_signals.index.names
-                symbol = idx[index_names.index('symbol')]
-            else:
-                symbol = idx
-
-            # 检查 portfolio.asset 中是否持有该标的
-            holding = portfolio.asset[portfolio.asset['asset'] == symbol]
-            if not holding.empty:
-                held_qty = holding.iloc[0]['quantity']
-                if held_qty > 0:
-                    trade_price = current_prices.loc[(current_time, symbol), 'close'] # 这里默认了用收盘价立刻买入
-                    orders_list.append({
-                        "date": current_time,
-                        "asset": symbol,
-                        "side": "SELL",
-                        "quantity": held_qty,
-                        "trade_price": trade_price
-                    })
+        if not sell_signals.empty:
+            sell_symbols = sell_signals.index.get_level_values('symbol').unique()
+            # 只查询当前持仓中需要卖出的标的
+            relevant_holdings = portfolio.asset[portfolio.asset['asset'].isin(sell_symbols)]
+            for symbol in sell_symbols:
+                holding = relevant_holdings[relevant_holdings['asset'] == symbol]
+                if not holding.empty:
+                    held_qty = holding['quantity'].values[0]
+                    if held_qty > 0:
+                        trade_price = current_prices.loc[(current_time, symbol), 'close']
+                        orders_list.append({
+                            "date": current_time,
+                            "asset": symbol,
+                            "side": "SELL",
+                            "quantity": held_qty,
+                            "trade_price": trade_price
+                        })
 
         # --- 处理买入信号 ---
+        # TODO: buy order信号处理可以考虑做进步抽象
         buy_signals = df_signals[df_signals['signal'] == 'BUY']
-        num_buy = len(buy_signals)
-        if num_buy > 0 and portfolio.cash > 0:
-            # 平均分配给每个买入标的的现金
-            allocated_cash = portfolio.cash / num_buy
-            for idx, row in buy_signals.iterrows():
-                if isinstance(idx, tuple):
-                    index_names = df_signals.index.names
-                    symbol = idx[index_names.index('symbol')]
-                else:
-                    symbol = idx
-
+        # 开始处理买入信号的时间
+        if not buy_signals.empty:
+            # 一次性获取所有买入信号的价格和最小手数
+            buy_symbols = buy_signals.index.get_level_values('symbol').unique()
+            min_lots = {symbol: get_min_lot(symbol) for symbol in buy_symbols}
+            allocated_cash = portfolio.cash / len(buy_signals)
+            for symbol in buy_symbols:
                 close_price = current_prices.loc[(current_time, symbol), 'close']
-                min_lot = get_min_lot(symbol)
-                # 计算使用 allocated_cash 能买入的最大股数
+                min_lot = min_lots[symbol]
                 raw_qty = allocated_cash / close_price
-                # 向下取整到最近的整数手（即 min_lot 的整数倍）
                 order_qty = int(raw_qty // min_lot) * min_lot
-                # 只有满足最小交易手数要求才生成订单
                 if order_qty >= min_lot:
                     orders_list.append({
                         "date": current_time,
@@ -128,7 +119,8 @@ class EqualWeightPositionManager(PositionManager):
                         "trade_price": close_price
                     })
 
-        # 构造订单 DataFrame，必须包含 ['date', 'asset', 'side', 'quantity'] 列
+        # 构造订单 DataFrame
         orders_df = pd.DataFrame(orders_list, columns=['date', 'asset', 'side', 'quantity', 'trade_price'])
+
         return Order(orders_df)
 

@@ -1,7 +1,10 @@
 from abc import ABC, abstractmethod
 import warnings
 import pandas as pd
+import numpy as np
 from core.datahub import Datahub
+from utils.moving_average import moving_average
+import time
 
 
 class Signal:
@@ -101,31 +104,34 @@ class MovingAverageStrategy(Strategy):
         buy_bias = self.buy_bias
         sell_bias = self.sell_bias
 
-        data = self.hub.get_bar(end_date=current_time)
+        window = max(ma_buy, ma_sell)
+        start_date = current_time - pd.Timedelta(days=window - 1)
+
+        data = self.hub.get_bars(start_date=start_date, end_date=current_time).copy()
 
         # 2) 计算长短均线
-        data['buy_ma'] = data[indicator].rolling(window=ma_buy).mean()
-        data['sell_ma'] = data[indicator].rolling(window=ma_sell).mean()
+        # 将指标列转换为 NumPy 数组（建议提前保证数据类型合适，比如 float32 或 float64）
+        indicator_values = data[indicator].values.astype(np.float64)
+        data['buy_ma'] = moving_average(indicator_values, ma_buy)
+        data['sell_ma'] = moving_average(indicator_values, ma_sell)
 
         # 3) 计算偏离
         data['buy_bias_val'] = (data[indicator] - data['buy_ma']) / data['buy_ma']
         data['sell_bias_val'] = (data[indicator] - data['sell_ma']) / data['sell_ma']
 
         # 4) 生成 signal
-        data['signal'] = None
-        data.loc[data['buy_bias_val'] < buy_bias, 'signal'] = 'BUY'
-        data.loc[data['sell_bias_val'] > sell_bias, 'signal'] = 'SELL'
-        print(data.columns)
+        data['signal'] = np.where(
+            data['sell_bias_val'] > sell_bias, 'SELL',
+            np.where(data['buy_bias_val'] < buy_bias, 'BUY', None)
+        )
 
         # 5) 整理输出
-        output = pd.DataFrame({
-            'signal': data['signal'],
-            'indicator': data[indicator],  # 可选
-            'close': data['close'],
-            'buy_ma': data['buy_ma'],
-            'sell_ma': data['sell_ma'],
-            'buy_bias_val': data['buy_bias_val'],
-            'sell_bias_val': data['sell_bias_val']
-        }, index=data.index)
+        full_output = data[['signal', indicator, 'close', 'buy_ma', 'sell_ma', 'buy_bias_val', 'sell_bias_val']].copy()
+        # 只保留current_time的信号
+        output = full_output.xs(
+                    key=current_time,
+                    level='trade_date',
+                    drop_level=False
+                )
 
         return Signal(output, current_time)
