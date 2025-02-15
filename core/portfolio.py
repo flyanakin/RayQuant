@@ -25,6 +25,7 @@ class Portfolio:
           :param initial_cash: 初始资金
         """
         self.cash = initial_cash
+        self.initial_cash = initial_cash
 
         # 当前持仓信息。若要支持多标的，可直接多行
         self.asset = pd.DataFrame(columns=['asset', 'quantity', 'cost_price', 'current_price'])
@@ -156,6 +157,19 @@ class Portfolio:
                 price = df_bar.iloc[0]['close']
             total_value += quantity * price
         return total_value
+
+    def get_asset_last_price(self, asset: str) -> float:
+        """
+        返回当前持仓中指定标的的最新价格。
+        :param asset: 标的名称或代码
+        :return: 当前价格
+        :raises ValueError: 如果持仓中没有该标的，则抛出异常
+        """
+        mask = self.asset['asset'] == asset
+        if self.asset[mask].empty:
+            raise ValueError(f"资产 {asset} 不存在于当前持仓中")
+        # 返回对应持仓记录中的 current_price
+        return self.asset[mask].iloc[0]['current_price']
 
     def total_value(self,
                     current_date: pd.Timestamp,
