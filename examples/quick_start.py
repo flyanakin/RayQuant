@@ -26,9 +26,9 @@ def main():
         hub=hub,
         indicator="close",
         ma_buy=720,
-        ma_sell=180,
+        ma_sell=720,
         buy_bias=-0.3,
-        sell_bias=0.15,
+        sell_bias=0.3,
     )
     backtester = BackTester(
         data=hub,
@@ -36,22 +36,23 @@ def main():
         position_manager=position_manager,
         portfolio=portfolio,
     )
-    result_ma = backtester.run_backtest()
+    scope = backtester.run_backtest()
     print("=== MA 策略结果 ===")
-    print(result_ma.tail(10))
+    print(scope.print_metrics())
 
     # 4) 查看回测结果
     print("\n===== 回测每日净值 =====")
-    print(result_ma.head(10))
+    print(scope.results.head(10))
     print("...")
-    print(result_ma.tail(10))
+    print(scope.results.tail(10))
 
-    final_value = result_ma["total_value"].iloc[-1]
+    final_value = scope.results["total_value"].iloc[-1]
     print(f"\n回测结束时组合总价值: {final_value}")
     print("\n===== 最终持仓信息 =====")
     print(portfolio.asset)
     print("\n===== 交易日志 =====")
     print(portfolio.trade_log)
+    scope.plot_results()
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ from core.position_manager import PositionManager
 from core.broker import Broker, Order
 from core.strategy import Strategy
 from core.datahub import Datahub
+from core.observer import Observer
 import time
 
 
@@ -29,11 +30,11 @@ class BackTester:
         self.broker = broker
         self.portfolio = portfolio
         self.data = data
+        self.observer = Observer(self.portfolio)
 
-    def run_backtest_without_broker(self) -> pd.DataFrame:
+    def run_backtest_without_broker(self) -> Observer:
         # 运行回测
         start_time = time.time()  # 开始计时
-        daily_values = []
         for date_data in self.data.timeseries_iterator():
             dt, data = date_data
             signals = self.strategy.generate_signals(dt)
@@ -55,24 +56,25 @@ class BackTester:
                     sell_order = Order(sell_order_df)
                     self.portfolio.sell(sell_order)
 
-            total_val = self.portfolio.total_value(current_date=dt, data=self.data)
-            daily_values.append({'date': dt, 'total_value': total_val})
-            print(f"当前日期:{dt}, 组合总价值:{round(total_val)}, 当前现金：{round(self.portfolio.cash)}")
+            total_val = round(self.portfolio.total_value(current_date=dt, data=self.data))
+            cash = round(self.portfolio.cash)
+            self.observer.record(dt, total_val, cash)
+            print(f"当前日期:{dt}")
 
+        self.observer.calculate_metrics()
         end_time = time.time()
 
-        result_df = pd.DataFrame(daily_values).set_index('date')
-        print(f"计算总价值耗时: {end_time - start_time:.2f}秒")
-        return result_df
+        print(f"回测总耗时: {end_time - start_time:.2f}秒")
+        return self.observer
 
-    def run_backtest(self) -> pd.DataFrame:
+    def run_backtest(self) -> Observer:
         """
         核心流程:
           1) 用 strategy.generate_signals() 生成交易信号
           2) 用 position_sizer 把信号转为订单
           3) broker 执行订单，更新 portfolio
           4) 计算并记录每日组合净值
-        :return: 回测结果 DataFrame(index=日期, columns=['total_value'])
+        :return: 回测结果 Observer
         """
         if self.broker is None:
             return self.run_backtest_without_broker()
