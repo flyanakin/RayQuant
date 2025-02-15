@@ -2,6 +2,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from typing import List, Dict, Optional
 from core.portfolio import Portfolio
+import plotly.express as px
 
 
 class Observer:
@@ -139,16 +140,11 @@ class Observer:
         """
         绘制收益率曲线和基准曲线（如果有）。
         """
-        plt.figure(figsize=(12, 6))
-        plt.plot(self.results['date'], self.results['total_value'], label='Portfolio')
-        if self.benchmark is not None:
-            for symbol in self.benchmark.columns:
-                plt.plot(self.benchmark.index, self.benchmark[symbol], label=f'Benchmark: {symbol}')
-        plt.xlabel('Date')
-        plt.ylabel('Total Value')
-        plt.title('Portfolio Value and Benchmark')
-        plt.legend()
-        plt.show()
+        df = self.results
+        fig = px.line(df, x='date', y='total_value', title='Portfolio Value and Benchmark')
+
+        fig.update_xaxes(rangeslider_visible=True)
+        fig.show()
 
     def print_metrics(self):
         """
