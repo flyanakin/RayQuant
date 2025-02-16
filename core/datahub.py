@@ -26,6 +26,13 @@ class Datahub(ABC):
                         "col_mapping": {
                             "trade_date": "date",
                             "symbol": "ts_code",
+                        },
+                        {
+                        "path": "data/benchmark.csv",
+                        "col_mapping": {
+                            "trade_date": "date",
+                            "symbol": "ts_code",
+                        "tags": ["benchmark"]
                         }
                     },
                }
