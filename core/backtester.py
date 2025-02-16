@@ -1,4 +1,3 @@
-# backtester.py
 import pandas as pd
 from core.portfolio import Portfolio
 from core.position_manager import PositionManager
@@ -36,11 +35,11 @@ class BackTester:
         self.broker = broker
         self.portfolio = portfolio
         self.data = data
-        self.observer = Observer(self.portfolio)
         self.start_date = start_date
         self.end_date = end_date
         self.benchmarks = benchmarks
         self.symbols = symbols
+        self.observer = Observer(self.portfolio)
 
     def run_backtest_without_broker(self) -> Observer:
         # 运行回测
@@ -69,9 +68,25 @@ class BackTester:
             total_val = round(self.portfolio.total_value(current_date=dt, data=self.data))
             cash = round(self.portfolio.cash)
             self.observer.record(dt, total_val, cash)
+
+            # 记录 benchmark 数据：利用 Datahub.get_bars 接口获取当日 benchmark 数据（仅提取收盘价）
+            benchmark_bars = self.data.get_bars(current_date=dt, benchmark=True)
+            if not benchmark_bars.empty:
+                # 如果返回的是 MultiIndex，则先重置索引
+                if isinstance(benchmark_bars.index, pd.MultiIndex):
+                    benchmark_bars = benchmark_bars.reset_index()
+                # 从数据中提取每个 benchmark 的收盘价（假设列名为 "close"）
+                if "close" in benchmark_bars.columns:
+                    # 假设数据中每个 benchmark 对应一行，可利用 groupby 防止重复
+                    benchmark_values = benchmark_bars.groupby("symbol")["close"].first().to_dict()
+                else:
+                    benchmark_values = {}
+                self.observer.record_benchmark(dt, benchmark_values)
+
             print(f"当前日期:{dt}")
 
         self.observer.calculate_metrics()
+        self.observer.calculate_benchmark_metrics()
         end_time = time.time()
 
         print(f"回测总耗时: {end_time - start_time:.2f}秒")
