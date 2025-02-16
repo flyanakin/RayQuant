@@ -31,3 +31,37 @@
 
     - name: amount
       description: 成交额
+
+- name: benchmark
+  description: 基准行情数据，通常市场主要指数比如a股的沪深300，美股的标普500
+  columns:
+    - name: symbol
+      description: 投资标的的唯一标识，如"SPX"，也可以是名称，但用户需要自行确保唯一
+      is_index: True
+      is_required: True
+
+    - name: trade_date
+      description: 交易日期，适用于 日/周/月/年，格式为"YYYY-MM-DD"，对于大于1天的日期为最后一天
+      is_index: True
+      is_required: True
+
+    - name: close
+      description: 收盘价
+
+    - name: open
+      description: 开盘价
+
+    - name: high
+      description: 最高价
+
+    - name: low
+      description: 最低价
+
+    - name: pre_close
+      description: 昨收价
+
+    - name: volume
+      description: 成交量
+
+    - name: amount
+      description: 成交额
