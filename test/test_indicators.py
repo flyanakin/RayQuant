@@ -73,10 +73,24 @@ def test_drawdown():
     values = [100, 110, 105, 120, 115, 130, 125, 140, 135, 150]
     df = pd.DataFrame(values, index=dates, columns=["value"])
 
-    interval_drawdowns, (overall_max_dd, max_interval) = drawdown(df, interval_months=1)
+    # 调用修改后的drawdown函数，返回DataFrame和整体最大回撤及其所在区间
+    interval_drawdowns_df, (overall_max_dd, max_interval) = drawdown(df, interval_months=1)
+
+    # 检查整体最大回撤值是否正确
     assert pytest.approx(overall_max_dd, rel=1e-3) == 0.04545
+
+    # 检查整体最大回撤所在的区间
     expected_interval = (dates[0], dates[-1])
     assert max_interval == expected_interval
+
+    # 检查返回的DataFrame的索引为MultiIndex，且只有一个区间
+    assert isinstance(interval_drawdowns_df.index, pd.MultiIndex)
+    assert len(interval_drawdowns_df) == 1
+    assert expected_interval in interval_drawdowns_df.index
+
+    # 检查DataFrame中对应区间的回撤值
+    dd_value = interval_drawdowns_df.loc[expected_interval, 'drawdown']
+    assert pytest.approx(dd_value, rel=1e-3) == 0.04545
 
 
 def test_annual_volatility():
