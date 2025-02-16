@@ -1,3 +1,5 @@
+import pandas as pd
+
 from core.datahub import LocalDataHub
 from core.strategy import MovingAverageStrategy
 from core.position_manager import EqualWeightPositionManager
@@ -31,6 +33,8 @@ def main():
         sell_bias=0.3,
     )
     backtester = BackTester(
+        start_date=pd.to_datetime('2007-01-01'),
+        end_date=pd.to_datetime('2022-12-31'),
         data=hub,
         strategy=ma_strategy,
         position_manager=position_manager,

@@ -17,6 +17,8 @@ class BackTester:
             position_manager: PositionManager,
             portfolio: Portfolio,
             broker: Broker = None,
+            start_date: pd.Timestamp = None,
+            end_date: pd.Timestamp = None
     ):
         """
         :param strategy: 任意符合 Strategy 接口的对象
@@ -24,6 +26,8 @@ class BackTester:
         :param portfolio: 组合信息
         :param data: 读取数据
         :param broker: 负责撮合交易
+        :param start_date: 回测开始日期，不填时读取所有时序数据
+        :param end_date: 回测结束日期，不填时读取所有时序数据
         """
         self.strategy = strategy
         self.position_manager = position_manager
@@ -31,6 +35,8 @@ class BackTester:
         self.portfolio = portfolio
         self.data = data
         self.observer = Observer(self.portfolio)
+        self.start_date = start_date
+        self.end_date = end_date
 
     def run_backtest_without_broker(self) -> Observer:
         # 运行回测
@@ -76,6 +82,12 @@ class BackTester:
           4) 计算并记录每日组合净值
         :return: 回测结果 Observer
         """
+        if self.start_date is None or self.end_date is None:
+            self.data.load_all_data()
+        else:
+            self.data.load_all_data(start_date=self.start_date,
+                                    end_date=self.end_date)
+
         if self.broker is None:
             return self.run_backtest_without_broker()
         else:

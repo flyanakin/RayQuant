@@ -44,10 +44,13 @@ class Datahub(ABC):
         self.bar_df = None  # 用于存放时序数据
         self.fundamental_df = None  # 用于存放财报数据
         self.info_df = None  # 用于存放元数据
-        self.load_all_data()
 
     @abstractmethod
-    def load_bar_data(self):
+    def load_bar_data(
+            self,
+            start_date: pd.Timestamp,
+            end_date: pd.Timestamp,
+    ):
         """
         抽象方法：读取时序数据并存入 self.bar_df。
         子类必须实现。
@@ -70,7 +73,11 @@ class Datahub(ABC):
         """
         pass
 
-    def load_all_data(self):
+    def load_all_data(
+            self,
+            start_date: pd.Timestamp = None,
+            end_date: pd.Timestamp = None
+    ):
         """
         一键加载所有数据。
         这里不是抽象方法，因为基类可直接调用子类实现的抽象方法。
@@ -81,7 +88,8 @@ class Datahub(ABC):
             self.load_info_data()
         if 'fundamental' in self.data_dict:
             self.load_fundamental_data()
-        self.load_bar_data()
+        self.load_bar_data(start_date=start_date,
+                           end_date=end_date)
 
     def get_main_timeline(self):
         """
@@ -176,7 +184,11 @@ class LocalDataHub(Datahub):
       - load_meta_data()
     否则会报错。
     """
-    def load_bar_data(self):
+    def load_bar_data(
+            self,
+            start_date: pd.Timestamp = None,
+            end_date: pd.Timestamp = None
+    ):
         path = self.data_dict['bar']['path']
         if not os.path.exists(path):
             print(f"[WARN] Timeseries file not found: {path}")
@@ -189,6 +201,12 @@ class LocalDataHub(Datahub):
         df.rename(columns=mapping, inplace=True)
 
         df['trade_date'] = pd.to_datetime(df['trade_date'])
+
+        # 根据start_date和end_date进行过滤，仅支持同时成立
+        if start_date is not None and end_date is not None:
+            df = df[(df['trade_date'] >= start_date)
+                    & (df['trade_date'] <= end_date)]
+
         df.set_index(['trade_date', 'symbol'], inplace=True)
         df.sort_index(inplace=True, ascending=True)
         self.bar_df = df
