@@ -77,14 +77,19 @@ def annual_return(
 def drawdown(
         df: pd.DataFrame,
         interval_months: int
-) -> tuple:
+) -> tuple[pd.DataFrame, tuple]:
     """
-    根据时间序列计算区间每个区间的回撤，并给出最大回撤值和总最大回撤的所在的区间。
+    根据时间序列计算每个区间内的最大回撤，并返回一个DataFrame，
+    其中区间的起始日期和结束日期作为MultiIndex，同时返回整体最大回撤及其对应区间。
     :param df: DataFrame，字段要求，包含
                 index: 日期，按日
                 value: 字段名不做要求，表示资产价值即可
     :param interval_months: 区间长度，单位为月，默认 3 个月。
-    :return: (最大回撤百分比, 对应区间)
+    :return: (interval_drawdowns_df, (最大回撤百分比, 对应区间))
+             interval_drawdowns_df: DataFrame，MultiIndex为['start_date','end_date']，
+             列为['drawdown']，表示每个区间的最大回撤百分比；
+             (最大回撤百分比, 对应区间): tuple，第一个元素为所有区间中的最大回撤百分比，
+             第二个元素为对应区间的 (起始日期, 结束日期)。
     """
     # 确保按照日期排序
     df = df.sort_index()
@@ -96,11 +101,11 @@ def drawdown(
     start_date = asset_series.index.min()
     end_date = asset_series.index.max()
 
-    interval_drawdowns = {}
+    intervals = []
 
     current_start = start_date
     while current_start <= end_date:
-        # 计算当前区间的结束日期：起始日 + interval_months 个月 - 1 天
+        # 计算当前区间的结束日期：起始日 + interval_months个月 - 1天
         current_end = current_start + pd.DateOffset(months=interval_months) - pd.Timedelta(days=1)
         if current_end > end_date:
             current_end = end_date
@@ -116,17 +121,20 @@ def drawdown(
         else:
             max_dd = 0  # 如果数据为空，则回撤设为0
 
-        # 记录区间及其最大回撤
-        interval_drawdowns[(current_start, current_end)] = max_dd
+        intervals.append((current_start, current_end, max_dd))
 
         # 下一区间的起始日期为当前结束日期的下一天
         current_start = current_end + pd.Timedelta(days=1)
 
-    # 找出整体最大回撤及其对应的区间
-    max_interval = max(interval_drawdowns, key=lambda x: interval_drawdowns[x])
-    overall_max_dd = interval_drawdowns[max_interval]
+        # 构造DataFrame，使用多重索引 (起始日期, 结束日期)
+    interval_drawdowns_df = pd.DataFrame(intervals, columns=['start_date', 'end_date', 'drawdown'])
+    interval_drawdowns_df.set_index(['start_date', 'end_date'], inplace=True)
 
-    return interval_drawdowns, (overall_max_dd, max_interval)
+    # 找出整体最大回撤及其对应的区间
+    max_row = interval_drawdowns_df['drawdown'].idxmax()
+    overall_max_dd = interval_drawdowns_df['drawdown'].max()
+
+    return interval_drawdowns_df, (overall_max_dd, max_row)
 
 
 def annual_volatility(
