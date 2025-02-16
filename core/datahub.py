@@ -270,7 +270,7 @@ class LocalDataHub(Datahub):
             return pd.DataFrame()
 
         # 构造映射：原始字段名 -> 标准字段名
-        mapping = file_info.get('col_mapping')
+        mapping = {std: orig for std, orig in file_info.get('col_mapping', {}).items()}
         df = pd.read_csv(path)
         df.rename(columns=mapping, inplace=True)
 
@@ -341,7 +341,7 @@ class LocalDataHub(Datahub):
             return
 
         # 命名标准化
-        mapping = {value: key for key, value in self.data_dict['info']['col_mapping'].items()}
+        mapping = {key: value for key, value in self.data_dict['info']['col_mapping'].items()}
         df = pd.read_csv(path)
         df.rename(columns=mapping, inplace=True)
 
