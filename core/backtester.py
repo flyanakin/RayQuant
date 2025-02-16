@@ -18,7 +18,9 @@ class BackTester:
             portfolio: Portfolio,
             broker: Broker = None,
             start_date: pd.Timestamp = None,
-            end_date: pd.Timestamp = None
+            end_date: pd.Timestamp = None,
+            benchmarks: list[str] = None,
+            symbols: list[str] = None,
     ):
         """
         :param strategy: 任意符合 Strategy 接口的对象
@@ -37,6 +39,8 @@ class BackTester:
         self.observer = Observer(self.portfolio)
         self.start_date = start_date
         self.end_date = end_date
+        self.benchmarks = benchmarks
+        self.symbols = symbols
 
     def run_backtest_without_broker(self) -> Observer:
         # 运行回测
@@ -86,7 +90,10 @@ class BackTester:
             self.data.load_all_data()
         else:
             self.data.load_all_data(start_date=self.start_date,
-                                    end_date=self.end_date)
+                                    end_date=self.end_date,
+                                    benchmarks=self.benchmarks,
+                                    symbols=self.symbols
+                                    )
 
         if self.broker is None:
             return self.run_backtest_without_broker()

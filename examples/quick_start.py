@@ -10,10 +10,22 @@ from core.backtester import BackTester
 def main():
     data_dict = {
         "bar": {
-            "path": "../test/dataset/index_daily.csv",
-            "col_mapping": {
-                "symbol": "ts_code",
-            },
+            "daily": [
+                {
+                    "path": "../test/dataset/index_daily.csv",
+                    "col_mapping": {
+                        "ts_code": "symbol",  # 原始文件字段名 : 标准字段名
+                    },
+                },
+            ],
+            "benchmark": [
+                {
+                    "path": "../test/dataset/benchmark.csv",
+                    "col_mapping": {
+                        "ts_code": "symbol",
+                    },
+                }
+            ],
         },
     }
 
@@ -33,8 +45,9 @@ def main():
         sell_bias=0.3,
     )
     backtester = BackTester(
-        start_date=pd.to_datetime('2007-01-01'),
-        end_date=pd.to_datetime('2022-12-31'),
+        start_date=pd.to_datetime("2007-01-01"),
+        end_date=pd.to_datetime("2023-12-31"),
+        benchmarks=['000300.SH', 'SPX'],
         data=hub,
         strategy=ma_strategy,
         position_manager=position_manager,
