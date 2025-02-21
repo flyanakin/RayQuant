@@ -58,6 +58,24 @@ def test_annual_return():
     assert pytest.approx(ret2, rel=1e-3) == expected
 
 
+def test_annual_return_with_dataframe():
+    # 构造一个包含起始和结束日期的 DataFrame
+    df = pd.DataFrame(
+        {"asset_value": [100, 200]},
+        index=[pd.Timestamp("2020-01-01"), pd.Timestamp("2021-01-01")]
+    )
+    # 根据日期计算总天数（注意这里使用 index 计算日期差）
+    total_days = (df.index[-1] - df.index[0]).days
+    # 根据公式计算预期的年化收益率
+    expected_return = round((200 / 100) ** (365 / total_days) - 1, 4)
+
+    # 调用函数时传入 df 参数，其他参数的值可以随意传入，因为函数内部会重新赋值
+    result = annual_return(start_value=0, end_value=0, total_days=0, df=df)
+
+    # 断言返回结果与预期一致
+    assert result == expected_return
+
+
 def test_drawdown():
     """
     测试回撤计算：
