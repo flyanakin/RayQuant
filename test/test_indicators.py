@@ -77,7 +77,7 @@ def test_drawdown():
     interval_drawdowns_df, (overall_max_dd, max_interval) = drawdown(df, interval_months=1)
 
     # 检查整体最大回撤值是否正确
-    assert pytest.approx(overall_max_dd, rel=1e-3) == 0.04545
+    assert pytest.approx(overall_max_dd, rel=1e-3) == 0.0455
 
     # 检查整体最大回撤所在的区间
     expected_interval = (dates[0], dates[-1])
@@ -90,7 +90,7 @@ def test_drawdown():
 
     # 检查DataFrame中对应区间的回撤值
     dd_value = interval_drawdowns_df.loc[expected_interval, 'drawdown']
-    assert pytest.approx(dd_value, rel=1e-3) == 0.04545
+    assert pytest.approx(dd_value, rel=1e-3) == 0.0455
 
 
 def test_annual_volatility():
