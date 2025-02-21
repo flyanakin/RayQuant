@@ -18,6 +18,7 @@ def win_rate(
     :param portfolio: Portfolio 对象，用于获取最新价格。
     :return: 交易胜率（0-1 之间的小数）。
     """
+    global _rate
     if trade_log.empty:
         return 0.0
 
@@ -55,8 +56,9 @@ def win_rate(
         floating_wins = (last_trade_with_position['floating_profit'] > 0).sum()
         win_count += floating_wins
         total_count += len(last_trade_with_position)
+        _rate = win_count / total_count if total_count > 0 else 0.0
 
-    return win_count / total_count if total_count > 0 else 0.0
+    return round(_rate, 4)
 
 
 def annual_return(
@@ -71,7 +73,7 @@ def annual_return(
     :param total_days: 总天数，根据自然年转换得到复利周期
     """
     annualized_return = ((end_value / start_value) ** (365 / total_days)) - 1 if start_value > 0 else 0
-    return annualized_return
+    return round(annualized_return, 4)
 
 
 def drawdown(
@@ -128,6 +130,7 @@ def drawdown(
 
         # 构造DataFrame，使用多重索引 (起始日期, 结束日期)
     interval_drawdowns_df = pd.DataFrame(intervals, columns=['start_date', 'end_date', 'drawdown'])
+    interval_drawdowns_df['drawdown'] = interval_drawdowns_df['drawdown'].round(4)
     interval_drawdowns_df.set_index(['start_date', 'end_date'], inplace=True)
 
     # 找出整体最大回撤及其对应的区间
@@ -158,4 +161,4 @@ def annual_volatility(
     # 使用250个交易日将日波动率年化
     annual_vol = daily_std * np.sqrt(250)
 
-    return annual_vol
+    return round(annual_vol, 4)
