@@ -64,14 +64,25 @@ def win_rate(
 def annual_return(
         start_value: float,
         end_value: float,
-        total_days: int
+        total_days: int,
+        df: pd.DataFrame = None,
 ) -> float:
     """
     计算年化收益率。
     :param start_value: 起始价值
     :param end_value: 结束价值
     :param total_days: 总天数，根据自然年转换得到复利周期
+    :param df: DataFrame，总价值的时间序列，若输入df时，直接自动计算。字段要求，包含
+                index: 日期，按日
+                value: 字段名不做要求，表示资产价值即可
+    :param
     """
+    if df is not None:
+        df.sort_index(ascending=True)
+        total_days = (df.index[-1] - df.index[0]).days
+        start_value = df.iloc[0, 0]
+        end_value = df.iloc[-1, 0]
+
     annualized_return = ((end_value / start_value) ** (365 / total_days)) - 1 if start_value > 0 else 0
     return round(annualized_return, 4)
 
