@@ -75,7 +75,8 @@ def annual_return(
     :param df: DataFrame，总价值的时间序列，若输入df时，直接自动计算。字段要求，包含
                 index: 日期，按日
                 value: 字段名不做要求，表示资产价值即可
-    :param
+    :return
+        回报率：浮点数，保留小数点后4位
     """
     if df is not None:
         df.sort_index(ascending=True)
@@ -159,6 +160,7 @@ def annual_volatility(
     :param df: DataFrame，字段要求，包含
                 index: 日期，按日
                 value: 字段名不做要求，表示每日回报率即可
+    :return 浮点数，保留小数点后四位
     """
     # 确保数据按照日期排序
     df = df.sort_index()
