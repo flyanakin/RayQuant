@@ -5,6 +5,7 @@ from core.broker import Broker, Order
 from core.strategy import Strategy
 from core.datahub import Datahub
 from core.observer import Observer
+from core.timeline import Timeline
 import time
 
 
@@ -44,8 +45,8 @@ class BackTester:
     def run_backtest_without_broker(self) -> Observer:
         # 运行回测
         start_time = time.time()  # 开始计时
-        for date_data in self.data.timeseries_iterator():
-            dt, data = date_data
+        timeline = Timeline(bar_df=self.data.bar_df)
+        for dt in timeline.timeseries_iterator():
             signals = self.strategy.generate_signals(dt)
             orders = self.position_manager.transform_signals_to_orders(
                 signals=signals,
