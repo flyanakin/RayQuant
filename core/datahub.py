@@ -124,41 +124,6 @@ class Datahub(ABC):
             self.load_fundamental_data()
         self.load_bar_data(start_date=start_date, end_date=end_date, symbols=symbols, benchmarks=benchmarks)
 
-    def get_main_timeline(self):
-        """
-        非抽象方法，可直接在基类中实现。
-        """
-        if (self.bar_df is None or self.bar_df.empty or
-                self.benchmark_df is None or self.benchmark_df.empty):
-            return []
-
-        # 获取所有 daily 数据中的日期并集
-        daily_union = self.bar_df.index.get_level_values(0).unique()
-        # 获取 benchmark 数据中的所有日期
-        benchmark_dates = self.benchmark_df.index.get_level_values(0).unique()
-        # 主时间线为 daily 并集与 benchmark 日期的交集
-        main_timeline = daily_union.intersection(benchmark_dates).sort_values()
-
-        # 针对 daily 数据的每个 symbol 检查主时间线中缺失的日期
-        daily_symbols = self.bar_df.index.get_level_values(1).unique()
-        for sym in daily_symbols:
-            # 获取该 symbol 在 daily 数据中出现的所有日期
-            sym_dates = self.bar_df.loc[(slice(None), sym), :].index.get_level_values(0).unique()
-            # 缺失的日期：在主时间线中，但该 symbol 未出现的数据日期
-            missing_dates = main_timeline.difference(sym_dates)
-            if not missing_dates.empty:
-                print(f"[INFO] Daily 数据中 symbol '{sym}' 缺失日期: {sorted(missing_dates)}")
-
-        # 针对 benchmark 数据的每个 symbol 检查主时间线中缺失的日期
-        benchmark_symbols = self.benchmark_df.index.get_level_values(1).unique()
-        for sym in benchmark_symbols:
-            sym_dates = self.benchmark_df.loc[(slice(None), sym), :].index.get_level_values(0).unique()
-            missing_dates = main_timeline.difference(sym_dates)
-            if not missing_dates.empty:
-                print(f"[INFO] Benchmark 数据中 symbol '{sym}' 缺失日期: {sorted(missing_dates)}")
-
-        return main_timeline
-
     def get_data_by_date(self, current_date):
         """
         在特定日期，返回所有标的的时序数据快照(行索引= symbol)。
@@ -172,14 +137,6 @@ class Datahub(ABC):
             return self.bar_df.xs(current_date, level=0)
         except KeyError:
             return pd.DataFrame()
-
-    def timeseries_iterator(self):
-        """
-        非抽象方法，用于回测引擎迭代。
-        """
-        timeline = self.get_main_timeline()
-        for dt in timeline:
-            yield dt, self.get_data_by_date(dt)
 
     def get_bars(self,
                  current_date: pd.Timestamp = None,

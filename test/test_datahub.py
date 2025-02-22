@@ -177,41 +177,6 @@ def test_load_all_data(data_dict):
     assert "name" in hub.info_df.columns
 
 
-def test_get_main_timeline(data_dict, capsys):
-    """
-    测试 get_main_timeline 方法：返回 daily 与 benchmark 日期的交集，
-    并检查当某个 symbol 缺失日期时不会产生打印提示（此测试使用完整数据）
-    """
-    hub = LocalDataHub(data_dict)
-    hub.load_all_data()
-    timeline = hub.get_main_timeline()
-    print(f"timeline:: {timeline}")
-    print(f"timeline_type:: {type(timeline)}")
-    expected = pd.to_datetime(["2021-01-01", "2021-01-02"])
-    expected.name = "trade_date"
-    pd.testing.assert_index_equal(timeline, expected)
-
-    captured = capsys.readouterr().out
-    # 对于完整数据，不应该打印任何 [INFO] 提示
-    assert "[INFO]" not in captured
-
-
-def test_get_main_timeline_missing_dates(data_dict_missing, capsys):
-    """
-    测试当 daily 数据中某个 symbol 缺失日期时，get_main_timeline 会打印出提示信息
-    """
-    hub = LocalDataHub(data_dict_missing)
-    hub.load_all_data()
-    timeline = hub.get_main_timeline()
-    expected = pd.to_datetime(["2021-01-01", "2021-01-02"])
-    expected.name = "trade_date"
-    pd.testing.assert_index_equal(timeline, expected)
-
-    captured = capsys.readouterr().out
-    # symbol '000002' 缺失 2021-01-02 的数据，应打印提示
-    assert "Daily 数据中 symbol '000002.SH' 缺失日期" in captured
-
-
 def test_get_data_by_date(data_dict):
     """
     测试 get_data_by_date 方法：检查在特定日期返回的 daily 数据快照
@@ -222,18 +187,6 @@ def test_get_data_by_date(data_dict):
     # daily 数据中应包含 symbol '000001' 与 '000002'
     assert "000001.SH" in snapshot.index
     assert "000002.SH" in snapshot.index
-
-
-def test_timeseries_iterator(data_dict):
-    """
-    测试 timeseries_iterator 方法：迭代返回的日期与对应快照
-    """
-    hub = LocalDataHub(data_dict)
-    hub.load_all_data()
-    timeline_list = list(hub.timeseries_iterator())
-    expected_dates = pd.to_datetime(["2021-01-01", "2021-01-02"])
-    dates = [item[0] for item in timeline_list]
-    pd.testing.assert_index_equal(pd.Index(dates), pd.Index(expected_dates))
 
 
 def test_get_bars_current_date(data_dict):
