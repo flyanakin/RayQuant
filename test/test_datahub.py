@@ -1,7 +1,9 @@
 import os
+import re
 import pandas as pd
 import pytest
 from datetime import datetime
+import numpy as np
 from core.datahub import LocalDataHub
 
 
@@ -300,3 +302,62 @@ def test_get_data_by_date_no_data(data_dict):
     hub = LocalDataHub(data_dict)
     with pytest.raises(ValueError):
         hub.get_data_by_date(pd.Timestamp("2021-01-01"))
+
+
+# ========== 测试 get_pivot 接口 ==========
+
+def test_get_pivot_complete(data_dict):
+    """
+    测试在正常数据下，get_pivot 返回正确的透视表
+    """
+    hub = LocalDataHub(data_dict)
+    hub.load_all_data()
+    pivot = hub.get_pivot("open")
+
+    # 构造预期的透视表：以交易日为行索引，股票代码为列索引
+    expected = pd.DataFrame({
+        "000001.SH": [10.0, 10.5],
+        "000002.SH": [20.0, 20.5]
+    }, index=pd.to_datetime(["2021-01-01", "2021-01-02"]))
+    expected.index.name = "trade_date"
+    expected.columns.name = "symbol"
+
+    # 排序索引保证一致性，再进行断言
+    pd.testing.assert_frame_equal(pivot.sort_index().sort_index(axis=1), expected)
+
+
+def test_get_pivot_missing(data_dict_missing):
+    """
+    测试当某些日期数据缺失时，透视表中相应位置应为 NaN
+    """
+    hub = LocalDataHub(data_dict_missing)
+    hub.load_all_data()
+    pivot = hub.get_pivot("open")
+
+    expected = pd.DataFrame({
+        "000001.SH": [10.0, 10.5],
+        "000002.SH": [20.0, np.nan]
+    }, index=pd.to_datetime(["2021-01-01", "2021-01-02"]))
+    expected.index.name = "trade_date"
+    expected.columns.name = "symbol"
+
+    pd.testing.assert_frame_equal(pivot.sort_index().sort_index(axis=1), expected)
+
+
+def test_get_pivot_invalid_indicator(data_dict):
+    """
+    测试当传入不存在的指标时，get_pivot 抛出 ValueError 异常
+    """
+    hub = LocalDataHub(data_dict)
+    hub.load_all_data()
+    with pytest.raises(ValueError, match="指标 'non_existent_indicator' 在 bar_df 中不存在。"):
+        hub.get_pivot("non_existent_indicator")
+
+
+def test_get_pivot_without_loading_data(data_dict):
+    """
+    测试未加载数据时调用 get_pivot 抛出异常
+    """
+    hub = LocalDataHub(data_dict)
+    with pytest.raises(ValueError, match=re.escape("未加载时序数据，请先调用 load_bar_data()。")):
+        hub.get_pivot("open")

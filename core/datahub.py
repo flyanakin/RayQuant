@@ -196,6 +196,34 @@ class Datahub(ABC):
             # 没有满足条件的数据时返回空DataFrame
             return pd.DataFrame()
 
+    def get_pivot(self, indicator: str) -> pd.DataFrame:
+        """
+        将 bar_df 按交易日期和标的代码透视，
+        返回一个以 trade_date 为行索引、symbol 为列索引，
+        指定指标的值作为数据的 DataFrame。主要用于相关性分析。
+
+        :param indicator: 指定的指标字段名，如 'close', 'open' 等。
+        :return: 透视后的 DataFrame，行索引为交易日期，列索引为标的代码。
+        """
+        if self.bar_df is None:
+            raise ValueError("未加载时序数据，请先调用 load_bar_data()。")
+        if indicator not in self.bar_df.columns:
+            raise ValueError(f"指标 '{indicator}' 在 bar_df 中不存在。")
+
+        # 如果 bar_df 的索引是 MultiIndex，假设第一层为 trade_date，第二层为 symbol
+        if isinstance(self.bar_df.index, pd.MultiIndex):
+            try:
+                pivot_df = self.bar_df[indicator].unstack(level=1)
+            except Exception as e:
+                raise ValueError("透视数据时出错，请检查 bar_df 的索引结构。") from e
+        else:
+            # 如果 bar_df 的索引不是 MultiIndex，则假定有 trade_date 和 symbol 两个字段
+            if "trade_date" not in self.bar_df.columns or "symbol" not in self.bar_df.columns:
+                raise ValueError("bar_df 必须包含 'trade_date' 和 'symbol' 字段以便透视。")
+            pivot_df = self.bar_df.pivot(index="trade_date", columns="symbol", values=indicator)
+
+        return pivot_df
+
 
 class LocalDataHub(Datahub):
     """
