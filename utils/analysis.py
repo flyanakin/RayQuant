@@ -1,5 +1,6 @@
 import pandas as pd
 from utils.indicators import annual_return, annual_volatility, drawdown, compute_future_return, kelly_criterion
+from utils.technical_process import calculate_moving_average_bias
 from typing import Tuple, Dict, Optional
 import re
 
@@ -269,3 +270,59 @@ def monotonic_group_discovery(
             return output_str, metrics
 
 
+def indicator_ma_discovery(
+        df: pd.DataFrame,
+        indicators: list[str],
+        mas: list[int],
+) -> tuple[dict, dict]:
+    """
+    寻找最优的因子和均线
+    :param df: index trade_date列为交易日期,
+                - price: 交易价格
+                - indicators列都必须在df中
+    :param indicators: 指标序列，如['close', 'vol']
+    :param mas: 均线序列 [5, 10, 20, ]
+    :return:
+    """
+    group_dfs = {}
+    win_rate_df = {}
+
+    for indicator in indicators:
+        # 对每个指标，先初始化一个内层字典
+        group_dfs[indicator] = {}
+        win_rate_df[indicator] = {}
+        df_slice = df[['trade_date', 'price', indicator]].copy().set_index('trade_date')
+        df_bias = calculate_moving_average_bias(
+            df=df_slice,
+            indicator_col=indicator,
+            mas=mas)
+
+        for ma in mas:
+            df_bias_slice = df_bias[['indicator', 'price', 'ma' + str(ma), 'ma' + str(ma) + '_bias']].copy()
+            group_dfs = group_data(
+                df=df_bias_slice,
+                group_by="bias",
+                group_cnt_range=(20, 60),
+            )
+            # 计算各组的指标
+            stats = pd.DataFrame()
+            for key, value in group_dfs.items():
+                stat = _compute_group_metrics(value)
+                stat['group_label'] = key
+                stats = pd.concat([stats, stat], ignore_index=True)
+                # 按照 group_label 的 Interval 左边界进行排序
+            stats['lower_bound'] = stats['group_label'].apply(lambda x: x.left)
+            stats = stats.sort_values(by='lower_bound')
+            # 将 Interval 转换为字符串展示，并去掉辅助排序列
+            stats['group_label'] = stats['group_label'].astype(str)
+            stats.drop(columns=['lower_bound'], inplace=True)
+
+            # 发现单调性
+            monotonic, metrics = monotonic_group_discovery(stats, 3, 'long')
+            output_str = f"{indicator}" + f"MA{ma}" + monotonic
+            group_dfs[indicator][ma] = group_dfs
+            win_rate_df[indicator][ma] = stats
+            if monotonic != "":
+                print(output_str)
+
+    return group_dfs, win_rate_df
