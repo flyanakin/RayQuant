@@ -175,3 +175,35 @@ def annual_volatility(
     annual_vol = daily_std * np.sqrt(250)
 
     return round(annual_vol, 4)
+
+
+def kelly_criterion(
+        winning_rate: float,
+        winning_reward: float,
+        losing_reward: float,
+        losing_rate: float = None,
+) -> float:
+    """
+    凯利公式计算，输出最佳投注比例
+    :param winning_rate:
+    :param losing_rate: 失败概率（通常与 winning_rate 之和为1）
+    :param winning_reward:
+    :param losing_reward:
+    :return:
+        f
+    """
+    if losing_rate is None:
+        losing_rate = 1 - winning_rate
+
+    # 保证losing_reward为正，因为losing_reward表示净亏损
+    losing_reward = abs(losing_reward)
+
+    if winning_reward == 0:
+        return 0.0
+
+    if losing_reward == 0:
+        # 净损失为0的时候，控制投注不超过100%
+        return 1.0
+
+    f = winning_rate / losing_reward - losing_rate / winning_reward
+    return round(f, 4)
