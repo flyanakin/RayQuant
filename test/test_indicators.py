@@ -4,7 +4,14 @@ import pytest
 from datetime import datetime
 
 # 假设你要测试的函数位于 portfolio_metrics.py 中
-from utils.indicators import win_rate, annual_return, drawdown, annual_volatility, kelly_criterion
+from utils.indicators import (
+    win_rate,
+    annual_return,
+    drawdown,
+    annual_volatility,
+    kelly_criterion,
+    compute_future_return,
+)
 
 
 # 用于测试的 DummyPortfolio
@@ -18,7 +25,7 @@ class DummyPortfolio:
 
 def test_win_rate_empty():
     """测试空交易记录，返回 0.0"""
-    empty_df = pd.DataFrame(columns=['asset', 'trade_date', 'trade_qty', 'trade_price'])
+    empty_df = pd.DataFrame(columns=["asset", "trade_date", "trade_qty", "trade_price"])
     portfolio = DummyPortfolio({})
     assert win_rate(empty_df, portfolio) == 0.0
 
@@ -35,7 +42,12 @@ def test_win_rate_mixed_trades():
     data = [
         {"asset": "A", "trade_date": "2025-01-01", "trade_qty": 100, "trade_price": 10},
         {"asset": "A", "trade_date": "2025-01-02", "trade_qty": -100, "trade_price": 8},
-        {"asset": "B", "trade_date": "2025-01-01", "trade_qty": -100, "trade_price": 10},
+        {
+            "asset": "B",
+            "trade_date": "2025-01-01",
+            "trade_qty": -100,
+            "trade_price": 10,
+        },
         {"asset": "B", "trade_date": "2025-01-02", "trade_qty": 100, "trade_price": 8},
         {"asset": "C", "trade_date": "2025-01-03", "trade_qty": 100, "trade_price": 10},
     ]
@@ -62,7 +74,7 @@ def test_annual_return_with_dataframe():
     # 构造一个包含起始和结束日期的 DataFrame
     df = pd.DataFrame(
         {"asset_value": [100, 200]},
-        index=[pd.Timestamp("2020-01-01"), pd.Timestamp("2021-01-01")]
+        index=[pd.Timestamp("2020-01-01"), pd.Timestamp("2021-01-01")],
     )
     # 根据日期计算总天数（注意这里使用 index 计算日期差）
     total_days = (df.index[-1] - df.index[0]).days
@@ -92,7 +104,9 @@ def test_drawdown():
     df = pd.DataFrame(values, index=dates, columns=["value"])
 
     # 调用修改后的drawdown函数，返回DataFrame和整体最大回撤及其所在区间
-    interval_drawdowns_df, (overall_max_dd, max_interval) = drawdown(df, interval_months=1)
+    interval_drawdowns_df, (overall_max_dd, max_interval) = drawdown(
+        df, interval_months=1
+    )
 
     # 检查整体最大回撤值是否正确
     assert pytest.approx(overall_max_dd, rel=1e-3) == 0.0455
@@ -107,7 +121,7 @@ def test_drawdown():
     assert expected_interval in interval_drawdowns_df.index
 
     # 检查DataFrame中对应区间的回撤值
-    dd_value = interval_drawdowns_df.loc[expected_interval, 'drawdown']
+    dd_value = interval_drawdowns_df.loc[expected_interval, "drawdown"]
     assert pytest.approx(dd_value, rel=1e-3) == 0.0455
 
 
@@ -134,6 +148,7 @@ def test_zero_winning_reward():
     result = kelly_criterion(0.5, 0, 1)
     assert result == 0.0
 
+
 def test_zero_losing_reward():
     """
     测试当 losing_reward 为 0 时，函数返回 1.0。
@@ -141,6 +156,7 @@ def test_zero_losing_reward():
     """
     result = kelly_criterion(0.5, 2, 0)
     assert result == 1.0
+
 
 def test_negative_losing_reward():
     """
@@ -151,3 +167,90 @@ def test_negative_losing_reward():
     """
     result = kelly_criterion(0.5, 2, -1)
     assert result == 0.25
+
+
+def test_compute_future_return_future_days_2():
+    # 构造测试数据：5个连续日期，价格依次为 100, 110, 120, 130, 140
+    dates = pd.date_range(start="2021-01-01", periods=5, freq="D")
+    df = pd.DataFrame({"price": [100.0, 110.0, 120.0, 130.0, 140.0]}, index=dates)
+
+    # 设定 future_days = 2
+    result = compute_future_return(df, future_days=2)
+
+    # 计算说明：
+    # 对于 future_days = 2：
+    #   index 0: future_return = (120 / 100 - 1) = 0.2
+    #   index 1: future_return = (130 / 110 - 1) ≈ 0.181818
+    #   index 2: future_return = (140 / 120 - 1) ≈ 0.166667
+    # 后两行因缺少未来数据会被删除，因此结果仅包含前三行
+    expected_dates = dates[:3]
+
+    expected_future_return = pd.Series(
+        [0.2, 0.18181818181818182, 0.16666666666666666], index=expected_dates
+    )
+
+    expected_end_date = pd.Series(
+        [
+            pd.Timestamp("2021-01-03"),
+            pd.Timestamp("2021-01-04"),
+            pd.Timestamp("2021-01-05"),
+        ],
+        index=expected_dates,
+    )
+
+    expected_end_price = pd.Series([120.0, 130.0, 140.0], index=expected_dates)
+
+    # 验证返回的 DataFrame 索引和各列数据是否与预期一致
+    pd.testing.assert_index_equal(result.index, expected_dates)
+    pd.testing.assert_series_equal(
+        result["future_return"], expected_future_return, check_names=False
+    )
+    pd.testing.assert_series_equal(
+        result["end_date"], expected_end_date, check_names=False
+    )
+    pd.testing.assert_series_equal(
+        result["end_price"], expected_end_price, check_names=False
+    )
+
+
+def test_compute_future_return_future_days_1():
+    # 构造测试数据：5个连续日期，价格序列为 [200, 220, 242, 266.2, 292.82]
+    dates = pd.date_range(start="2021-01-01", periods=5, freq="D")
+    prices = [200, 220, 242, 266.2, 292.82]
+    df = pd.DataFrame({"price": prices}, index=dates)
+
+    # 设定 future_days = 1
+    result = compute_future_return(df, future_days=1)
+
+    # 对于 future_days = 1：
+    #   index 0: future_return = (220/200 - 1) = 0.1
+    #   index 1: future_return = (242/220 - 1) ≈ 0.1
+    #   index 2: future_return = (266.2/242 - 1) ≈ 0.1
+    #   index 3: future_return = (292.82/266.2 - 1) ≈ 0.1
+    # index 4因缺少未来数据会被删除，因此结果包含前4行
+    expected_dates = dates[:-1]
+
+    expected_future_return = pd.Series([0.1, 0.1, 0.1, 0.1], index=expected_dates)
+
+    expected_end_date = pd.Series(
+        [
+            pd.Timestamp("2021-01-02"),
+            pd.Timestamp("2021-01-03"),
+            pd.Timestamp("2021-01-04"),
+            pd.Timestamp("2021-01-05"),
+        ],
+        index=expected_dates,
+    )
+
+    expected_end_price = pd.Series([220, 242, 266.2, 292.82], index=expected_dates)
+
+    pd.testing.assert_index_equal(result.index, expected_dates)
+    pd.testing.assert_series_equal(
+        result["future_return"], expected_future_return, check_names=False
+    )
+    pd.testing.assert_series_equal(
+        result["end_date"], expected_end_date, check_names=False
+    )
+    pd.testing.assert_series_equal(
+        result["end_price"], expected_end_price, check_names=False
+    )

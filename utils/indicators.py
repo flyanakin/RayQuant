@@ -207,3 +207,21 @@ def kelly_criterion(
 
     f = winning_rate / losing_reward - losing_rate / winning_reward
     return round(f, 4)
+
+
+def compute_future_return(df: pd.DataFrame, future_days: int) -> pd.DataFrame:
+    """
+    根据输入 df 中的 price 字段计算未来收益率
+    :param df: index为日期，并已做升序拍排序，price列为交易价格
+    :param future_days: N个交易日
+    :return
+          df: 增加future_return、end_date、end_price三列，并且删除没有未来价格的行
+    """
+    df = df.copy()
+    # 计算未来收益率，注意使用 price 字段
+    df['future_return'] = df['price'].pct_change(periods=future_days).shift(-future_days)
+    # 计算结束日和结束价格（结束日为未来第 future_days 个时间点）
+    df['end_date'] = df.index.to_series().shift(-future_days)
+    df['end_price'] = df['price'].shift(-future_days)
+    df.dropna(inplace=True)
+    return df
