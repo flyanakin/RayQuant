@@ -238,7 +238,7 @@ def monotonic_group_discovery(
             metrics['sample_cnt'] = monotonic_rows[-1]['sample_cnt']  # 取最低胜率行的样本数
             metrics['f'] = monotonic_rows[-1]['f']
             output_str = "偏离均线超过{:.2f}%，做多具有单调性，有{}组数据，最低胜率{:.2f}%，最高胜率{:.2f}%，最佳投注比{:.2f}%，样本数{}，所在分组{}".format(
-                metrics['bias_high_bound'],  metrics['group_cnt'], metrics['lowest_rate'] * 100,
+                metrics['bias_high_bound'] * 100,  metrics['group_cnt'], metrics['lowest_rate'] * 100,
                 metrics['highest_rate'] * 100, metrics['f'] * 100, metrics['sample_cnt'], metrics['interval'])
             return output_str, metrics
         else:
@@ -264,7 +264,7 @@ def monotonic_group_discovery(
             metrics['sample_cnt'] = monotonic_rows[-1]['sample_cnt']
             metrics['f'] = monotonic_rows[-1]['f']
             output_str = "偏离均线超过{:.2f}%，做空具有单调性，有{}组数据，最低胜率{:.2f}%，最高胜率{:.2f}%，最佳投注比{:.2f}%，样本数{}，所在分组{}".format(
-                metrics['bias_low_bound'], metrics['group_cnt'], metrics['lowest_rate'] * 100,
+                metrics['bias_low_bound'] * 100, metrics['group_cnt'], metrics['lowest_rate'] * 100,
                 metrics['highest_rate'] * 100, metrics['f'] * 100, metrics['sample_cnt'], metrics['interval'])
             return output_str, metrics
         else:
