@@ -1,5 +1,7 @@
 import pandas as pd
-from utils.indicators import annual_return, annual_volatility, drawdown
+from utils.indicators import annual_return, annual_volatility, drawdown, compute_future_return, kelly_criterion
+from typing import Tuple, Dict, Optional
+import re
 
 
 def risk_and_return(
@@ -79,3 +81,72 @@ def risk_and_return(
         'return_lines': return_lines,
         'drawdown_df': drawdown_df
     }
+
+
+def _group_cnt(total_count,
+               group_cnt_range: Tuple[int, int],
+               min_sample_cnt: int = 30
+               ) -> int:
+    """
+    计算分组数量
+    :param total_count: 总样本数量
+    :param group_cnt_range: 分组数量范围
+    :param min_sample_cnt: 每组最少的样本数
+    :return:
+    """
+    num_groups = total_count // min_sample_cnt
+    num_groups = min(max(num_groups, group_cnt_range[0]), group_cnt_range[1])
+    return num_groups
+
+
+def group_data(
+        df: pd.DataFrame,
+        group_by: str = "bias",
+        group_cnt_range: Tuple[int, int] = (20, 80),
+) -> Dict[str, pd.DataFrame]:
+    """
+    该函数会：
+      根据指定字段（bias 或 indicator）进行等分分组，分组数根据样本总数计算（每组至少 30 个点），并限定在 group_cnt_range 范围内；
+      分组时采用 pd.qcut，生成的分组标签为区间字符串，更具业务语义。
+    :param df: index为日期，必须包含price列用于回测计算
+                - price：用于计算未来收益
+                - 当 group_by 为 bias 时，至少需要包含一个 ma{N}_bias 列
+                - 当 group_by 为 indicator 时，需包含 indicator 列
+    :param group_by:
+                - 当 group_by == "bias" 时：基于 ma{N}_bias 列进行分组
+                - 当 group_by == "indicator" 时：基于 indicator 列分组
+    :param group_cnt_range: 分组数量的范围
+    :return
+        Dict: bias区间为key，value为对应的数据集 {"(-36.952, -34.26]": pd.Dataframe}
+              indicator区间为key，value为对应的数据集 {"(2, 2.5]": pd.Dataframe}
+    """
+    if group_by == "bias":
+        # 获取 ma{N}_bias 列
+        bias_cols = [col for col in df.columns if re.match(r'ma\d+_bias', col)]
+        if not bias_cols:
+            raise ValueError("输入 DataFrame 需要至少包含一个 `ma{N}_bias` 列")
+        # 选择最后一个 bias 列
+        bias_col = bias_cols[-1]
+        group_field = bias_col
+    elif group_by == "indicator":
+        # 获取 indicator 列
+        group_field = 'indicator'
+    else:
+        raise ValueError(f"Invalid group_by value: {group_by}")
+
+    # 根据总样本数决定分组数（每组至少 30 个点），并限定在 group_cnt_range 范围内
+    total_count = len(df)
+    num_groups = _group_cnt(total_count, group_cnt_range, min_sample_cnt=30)
+
+    groups = pd.qcut(df[group_field], num_groups, duplicates='drop')
+    df['group_label'] = groups
+
+    # 构建详细数据字典，按照 Interval 的左边界从小到大排序，并转换为字符串作为 key
+    group_details: Dict[str, pd.DataFrame] = {
+        str(key): group.copy()
+        for key, group in sorted(df.groupby('group_label', observed=False), key=lambda kv: kv[0].left)
+    }
+
+    return group_details
+
+
