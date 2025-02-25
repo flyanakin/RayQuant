@@ -175,7 +175,7 @@ def test_compute_future_return_future_days_2():
     df = pd.DataFrame({"price": [100.0, 110.0, 120.0, 130.0, 140.0]}, index=dates)
 
     # 设定 future_days = 2
-    result = compute_future_return(df, future_days=2)
+    result = compute_future_return(df, future_days=2, direction='long')
 
     # 计算说明：
     # 对于 future_days = 2：
@@ -220,7 +220,7 @@ def test_compute_future_return_future_days_1():
     df = pd.DataFrame({"price": prices}, index=dates)
 
     # 设定 future_days = 1
-    result = compute_future_return(df, future_days=1)
+    result = compute_future_return(df, future_days=1, direction='long')
 
     # 对于 future_days = 1：
     #   index 0: future_return = (220/200 - 1) = 0.1

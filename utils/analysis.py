@@ -300,7 +300,7 @@ def indicator_ma_discovery(
 
         for ma in mas:
             df_bias_slice = df_bias[['indicator', 'price', 'ma' + str(ma), 'ma' + str(ma) + '_bias']].copy()
-            df_bias_slice = compute_future_return(df=df_bias_slice, future_days=ma)
+            df_bias_slice = compute_future_return(df=df_bias_slice, future_days=ma, direction='long')
             group_dfs = group_data(
                 df=df_bias_slice,
                 group_by="bias",
