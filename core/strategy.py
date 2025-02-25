@@ -3,7 +3,7 @@ import warnings
 import pandas as pd
 import numpy as np
 from core.datahub import Datahub
-from utils.moving_average import moving_average
+from utils.technical_process import moving_average
 import time
 
 
