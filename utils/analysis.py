@@ -172,7 +172,8 @@ def _compute_group_metrics(
                 - sample_cnt: 样本数
                 - avg_return: 该分组的平均收益率
     """
-    stats_df = group_detail.agg(
+    grouped = group_detail.groupby('group_label', observed=False)['future_return']
+    stats_df = grouped.agg(
         winning_rate=lambda x: (x > 0).mean(),
         winning_reward=lambda x: x[x > 0].mean() if (x > 0).any() else 0,
         sample_cnt='count',
@@ -284,12 +285,12 @@ def indicator_ma_discovery(
     :param mas: 均线序列 [5, 10, 20, ]
     :return:
     """
-    group_dfs = {}
+    group_ma_dfs = {}
     win_rate_df = {}
 
     for indicator in indicators:
         # 对每个指标，先初始化一个内层字典
-        group_dfs[indicator] = {}
+        group_ma_dfs[indicator] = {}
         win_rate_df[indicator] = {}
         df_slice = df[['trade_date', 'price', indicator]].copy().set_index('trade_date')
         df_bias = calculate_moving_average_bias(
@@ -299,18 +300,14 @@ def indicator_ma_discovery(
 
         for ma in mas:
             df_bias_slice = df_bias[['indicator', 'price', 'ma' + str(ma), 'ma' + str(ma) + '_bias']].copy()
+            df_bias_slice = compute_future_return(df=df_bias_slice, future_days=ma)
             group_dfs = group_data(
                 df=df_bias_slice,
                 group_by="bias",
                 group_cnt_range=(20, 60),
             )
             # 计算各组的指标
-            stats = pd.DataFrame()
-            for key, value in group_dfs.items():
-                stat = _compute_group_metrics(value)
-                stat['group_label'] = key
-                stats = pd.concat([stats, stat], ignore_index=True)
-                # 按照 group_label 的 Interval 左边界进行排序
+            stats = _compute_group_metrics(df_bias_slice)
             stats['lower_bound'] = stats['group_label'].apply(lambda x: x.left)
             stats = stats.sort_values(by='lower_bound')
             # 将 Interval 转换为字符串展示，并去掉辅助排序列
@@ -320,9 +317,9 @@ def indicator_ma_discovery(
             # 发现单调性
             monotonic, metrics = monotonic_group_discovery(stats, 3, 'long')
             output_str = f"{indicator}" + f"MA{ma}" + monotonic
-            group_dfs[indicator][ma] = group_dfs
+            group_ma_dfs[indicator][ma] = group_dfs
             win_rate_df[indicator][ma] = stats
             if monotonic != "":
                 print(output_str)
 
-    return group_dfs, win_rate_df
+    return group_ma_dfs, win_rate_df
