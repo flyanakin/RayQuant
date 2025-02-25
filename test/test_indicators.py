@@ -4,7 +4,7 @@ import pytest
 from datetime import datetime
 
 # 假设你要测试的函数位于 portfolio_metrics.py 中
-from utils.indicators import win_rate, annual_return, drawdown, annual_volatility
+from utils.indicators import win_rate, annual_return, drawdown, annual_volatility, kelly_criterion
 
 
 # 用于测试的 DummyPortfolio
@@ -125,3 +125,29 @@ def test_annual_volatility():
     expected_annual_vol = daily_std * np.sqrt(250)
     vol = annual_volatility(df)
     assert pytest.approx(vol, rel=1e-3) == expected_annual_vol
+
+
+def test_zero_winning_reward():
+    """
+    测试当 winning_reward 为 0 时，函数返回 0.0。
+    """
+    result = kelly_criterion(0.5, 0, 1)
+    assert result == 0.0
+
+def test_zero_losing_reward():
+    """
+    测试当 losing_reward 为 0 时，函数返回 1.0。
+    注意：即使传入的 losing_reward 为 0，内部会取 abs(0) 后仍为 0。
+    """
+    result = kelly_criterion(0.5, 2, 0)
+    assert result == 1.0
+
+def test_negative_losing_reward():
+    """
+    测试当传入负的 losing_reward 时，内部会取绝对值，
+    与正常正值的 losing_reward 结果相同。
+    例如：winning_rate=0.5, winning_reward=2, losing_reward=-1，
+    结果应为 0.25。
+    """
+    result = kelly_criterion(0.5, 2, -1)
+    assert result == 0.25
