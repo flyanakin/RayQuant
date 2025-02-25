@@ -209,19 +209,33 @@ def kelly_criterion(
     return round(f, 4)
 
 
-def compute_future_return(df: pd.DataFrame, future_days: int) -> pd.DataFrame:
+def compute_future_return(df: pd.DataFrame,
+                          future_days: int,
+                          direction: str = 'long'
+) -> pd.DataFrame:
     """
     根据输入 df 中的 price 字段计算未来收益率
+    :param direction:
     :param df: index为日期，并已做升序拍排序，price列为交易价格
     :param future_days: N个交易日
+    :param direction: 交易方向，做多做空
     :return
           df: 增加future_return、end_date、end_price三列，并且删除没有未来价格的行
     """
     df = df.copy()
-    # 计算未来收益率，注意使用 price 字段
-    df['future_return'] = df['price'].pct_change(periods=future_days).shift(-future_days)
-    # 计算结束日和结束价格（结束日为未来第 future_days 个时间点）
+    # 计算未来第N天的日期与价格
     df['end_date'] = df.index.to_series().shift(-future_days)
     df['end_price'] = df['price'].shift(-future_days)
+
+    # 根据方向计算收益率：
+    # 做多时收益率 = (未来价格 / 当前价格 - 1)
+    # 做空时收益率 = (当前价格 / 未来价格 - 1)
+    if direction == 'long':
+        df['future_return'] = df['end_price'] / df['price'] - 1
+    elif direction == 'short':
+        df['future_return'] = df['price'] / df['end_price'] - 1
+    else:
+        raise ValueError("direction 参数必须为 'long' 或 'short'")
+
     df.dropna(inplace=True)
     return df
