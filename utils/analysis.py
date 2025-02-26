@@ -3,6 +3,8 @@ from utils.indicators import annual_return, annual_volatility, drawdown, compute
 from utils.technical_process import calculate_moving_average_bias
 from typing import Tuple, Dict, Optional
 import re
+import warnings
+import numpy as np
 
 
 def risk_and_return(
@@ -323,3 +325,72 @@ def indicator_ma_discovery(
                 print(output_str)
 
     return group_ma_dfs, win_rate_df
+
+
+def get_matrix(
+       dfs: list[pd.DataFrame],
+       time_range: tuple[pd.Timestamp, pd.Timestamp],
+       metric_col: str,
+       log_return: bool=False
+) -> pd.DataFrame:
+    """
+    参数说明：
+    - dfs：多个DataFrame列表，每个DataFrame代表一个标的的数据，要求具有相同的schema，其中必须包含'trade_date'和'symbol'字段，
+           以及用户指定的指标列（如'close'）。
+    - time_range：时间范围，元组形式 (start_date, end_date)
+    - metric_col：所选指标列名称，如'close'
+    - log_return：若为True，则计算该指标的对数收益率
+
+    函数逻辑：
+    1. 遍历所有df，对trade_date字段进行datetime转换（如果还不是datetime格式），并根据time_range过滤数据；
+    2. 将所有过滤后的数据合并，然后利用pivot将数据变为：index为trade_date，columns为symbol，values为metric_col；
+    3. 生成一个完整的时间索引（可以是全日期区间），并reindex，确保时间线为并集；
+    4. 对缺失值使用前向填充；若某一列的第一个值依然缺失，则给出警告提示用户检查时间范围；
+    5. 若log_return为True，则计算对数收益率（使用np.log(当前值/前一周期值)），并删除第一个NaN行。
+    """
+
+    filtered_dfs = []
+    for df in dfs:
+        # 确保trade_date为datetime类型
+        if not np.issubdtype(df['trade_date'].dtype, np.datetime64):
+            df['trade_date'] = pd.to_datetime(df['trade_date'])
+        # 根据时间范围过滤数据
+        mask = (df['trade_date'] >= time_range[0]) & (df['trade_date'] <= time_range[1])
+        filtered_dfs.append(df.loc[mask].copy())
+
+    if not filtered_dfs:
+        raise ValueError("没有满足时间范围的数据。")
+
+    # 合并所有df
+    combined_df = pd.concat(filtered_dfs, ignore_index=True)
+
+    # 检查是否有'symbol'字段，否则无法区分不同标的
+    if 'symbol' not in combined_df.columns:
+        raise ValueError("DataFrame中缺少'symbol'字段。")
+
+    # 使用pivot，将数据整理为：index为trade_date，columns为symbol，values为metric_col
+    pivot_df = combined_df.pivot(index='trade_date', columns='symbol', values=metric_col)
+    pivot_df.sort_index(inplace=True)
+
+    # 生成完整的时间索引，使用全日期范围
+    full_index = pd.date_range(start=time_range[0], end=time_range[1])
+    pivot_df = pivot_df.reindex(full_index)
+    pivot_df.index.name = 'trade_date'
+
+    # 对缺失值进行前向填充
+    pivot_df_ffill = pivot_df.ffill()
+
+    # 检查每一列首行是否仍然缺失，如果是，则发出warning提示用户检查时间范围
+    for col in pivot_df_ffill.columns:
+        if pd.isna(pivot_df_ffill[col].iloc[0]):
+            warnings.warn(f"标的 {col} 在时间范围起始处无有效数据，请检查所选时间范围。")
+
+    # 如果需要计算log收益，则对前向填充后的数据计算对数收益率
+    if log_return:
+        # 计算对数收益率：ln(当前值/前一期值)
+        pivot_df_ffill = np.log(pivot_df_ffill / pivot_df_ffill.shift(1))
+        # 删除第一行NaN数据
+        pivot_df_ffill = pivot_df_ffill.dropna()
+
+    return pivot_df_ffill
+
