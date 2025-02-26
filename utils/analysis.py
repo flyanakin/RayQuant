@@ -245,22 +245,22 @@ def monotonic_group_discovery(
             return output_str, metrics
 
     elif direction == 'short':
-        # 做空：从最后一行开始向上检查，要求前一行的胜率必须严格大于后一行的胜率
+        # 做空：从最后一行开始向上检查，要求前一行的胜率必须严格小于后一行的胜率
         monotonic_rows.append(df.iloc[-1])
         for i in range(len(df) - 2, -1, -1):
-            if df.iloc[i]['winning_rate'] > df.iloc[i + 1]['winning_rate']:
+            if df.iloc[i]['winning_rate'] < df.iloc[i + 1]['winning_rate']:
                 # 插入到序列开头，以保证最终顺序与df一致
                 monotonic_rows.insert(0, df.iloc[i])
             else:
                 break
         if len(monotonic_rows) >= min_groups:
             metrics['group_cnt'] = len(monotonic_rows)
-            metrics['highest_rate'] = 1 - monotonic_rows[-1]['winning_rate']  # 单调区间中最高的胜率（靠近df上部）
+            metrics['highest_rate'] = 1 - monotonic_rows[0]['winning_rate']  # 单调区间中最高的胜率（靠近df上部）
             metrics['interval'] = monotonic_rows[-1]['group_label']
             nums = re.findall(r"[-+]?\d*\.\d+", metrics['interval'])  # 匹配带符号的小数
             left, right = map(float, nums)
             metrics['bias_low_bound'] = left
-            metrics['lowest_rate'] = 1 - monotonic_rows[0]['winning_rate']  # 最低的胜率
+            metrics['lowest_rate'] = 1 - monotonic_rows[-1]['winning_rate']  # 最低的胜率
             metrics['sample_cnt'] = monotonic_rows[-1]['sample_cnt']
             metrics['f'] = monotonic_rows[-1]['f']
             output_str = "偏离均线超过{:.2f}%，做空具有单调性，有{}组数据，最低胜率{:.2f}%，最高胜率{:.2f}%，最佳投注比{:.2f}%，样本数{}，所在分组{}".format(
