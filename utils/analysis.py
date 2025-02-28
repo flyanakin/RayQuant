@@ -224,8 +224,9 @@ def monotonic_group_discovery(
         # 从第一行开始检查：必须满足当前行的胜率严格大于下一行的胜率
         monotonic_rows.append(df.iloc[0])
         for i in range(1, len(df)):
-            # 当前行的胜率大于下一行的胜率，才加入单调序列
-            if df.iloc[i - 1]['winning_rate'] > df.iloc[i]['winning_rate']:
+            # 如果当前行胜率为100%，且下一行也为100%，则允许两者相等；否则要求严格递减
+            if (df.iloc[i - 1]['winning_rate'] == 1.0 and df.iloc[i]['winning_rate'] == 1.0) \
+                    or (df.iloc[i - 1]['winning_rate'] > df.iloc[i]['winning_rate']):
                 monotonic_rows.append(df.iloc[i])
             else:
                 break
@@ -247,10 +248,11 @@ def monotonic_group_discovery(
             return output_str, metrics
 
     elif direction == 'short':
-        # 做空：从最后一行开始向上检查，要求前一行的胜率必须严格小于后一行的胜率
+        # 做空：从最后一行开始向上检查，要求前一行的胜率必须严格小于后一行的胜率，除非胜率=100%
         monotonic_rows.append(df.iloc[-1])
         for i in range(len(df) - 2, -1, -1):
-            if df.iloc[i]['winning_rate'] < df.iloc[i + 1]['winning_rate']:
+            if (df.iloc[i + 1]['winning_rate'] == 1.0 and df.iloc[i]['winning_rate'] == 1.0) \
+                    or (df.iloc[i]['winning_rate'] < df.iloc[i + 1]['winning_rate']):
                 # 插入到序列开头，以保证最终顺序与df一致
                 monotonic_rows.insert(0, df.iloc[i])
             else:
