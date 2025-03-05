@@ -239,7 +239,8 @@ def monotonic_group_discovery(
             metrics['f'] = monotonic_rows[-1]['f']
             output_str = "做多具有单调性，有{}组数据，最低胜率{:.2f}%，最高胜率{:.2f}%，最佳投注比{:.2f}%，样本数{}，所在分组{}".format(
                 metrics['group_cnt'], metrics['lowest_rate'] * 100,
-                metrics['highest_rate'] * 100, metrics['f'] * 100, metrics['sample_cnt'], metrics['interval'])
+                                      metrics['highest_rate'] * 100, metrics['f'] * 100, metrics['sample_cnt'],
+                metrics['interval'])
             return output_str, metrics
         else:
             return output_str, metrics
@@ -263,7 +264,8 @@ def monotonic_group_discovery(
             metrics['f'] = monotonic_rows[-1]['f']
             output_str = "做空具有单调性，有{}组数据，最低胜率{:.2f}%，最高胜率{:.2f}%，最佳投注比{:.2f}%，样本数{}，所在分组{}".format(
                 metrics['group_cnt'], metrics['lowest_rate'] * 100,
-                metrics['highest_rate'] * 100, metrics['f'] * 100, metrics['sample_cnt'], metrics['interval'])
+                                      metrics['highest_rate'] * 100, metrics['f'] * 100, metrics['sample_cnt'],
+                metrics['interval'])
             return output_str, metrics
         else:
             return output_str, metrics
@@ -324,10 +326,11 @@ def indicator_ma_discovery(
 
 
 def get_matrix(
-       dfs: list[pd.DataFrame],
-       time_range: tuple[pd.Timestamp, pd.Timestamp],
-       metric_col: str,
-       log_return: bool=False
+        dfs: list[pd.DataFrame],
+        time_range: tuple[pd.Timestamp, pd.Timestamp],
+        metric_col: str,
+        log_return: bool = False,
+        period: str = 'D'
 ) -> pd.DataFrame:
     """
     参数说明：
@@ -336,6 +339,7 @@ def get_matrix(
     - time_range：时间范围，元组形式 (start_date, end_date)
     - metric_col：所选指标列名称，如'close'
     - log_return：若为True，则计算该指标的对数收益率
+    - period：数据的颗粒度，可选值包括'D'（日）、'W'（周）、'M'（月）、'Q'（季度）、'6M'（半年）、'Y'（年）、'N'（N个交易日）
 
     函数逻辑：
     1. 遍历所有df，对trade_date字段进行datetime转换（如果还不是datetime格式），并根据time_range过滤数据；
@@ -368,8 +372,16 @@ def get_matrix(
     pivot_df = combined_df.pivot(index='trade_date', columns='symbol', values=metric_col)
     pivot_df.sort_index(inplace=True)
 
+    # 根据period参数进行重采样
+    if period != 'D':
+        if period == 'N':
+            # 如果是N个交易日，需要先计算N个交易日的日期范围
+            raise NotImplementedError("N个交易日的重采样尚未实现")
+        else:
+            pivot_df = pivot_df.resample(period).last()
+
     # 生成完整的时间索引，使用全日期范围
-    full_index = pd.date_range(start=time_range[0], end=time_range[1])
+    full_index = pd.date_range(start=time_range[0], end=time_range[1], freq=period)
     pivot_df = pivot_df.reindex(full_index)
     pivot_df.index.name = 'trade_date'
 
@@ -389,4 +401,3 @@ def get_matrix(
         pivot_df_ffill = pivot_df_ffill.dropna()
 
     return pivot_df_ffill
-

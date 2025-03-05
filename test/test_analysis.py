@@ -1,7 +1,9 @@
 import pandas as pd
 import numpy as np
 import pytest
-from utils.analysis import risk_and_return
+from utils.analysis import risk_and_return, get_matrix
+from pandas.testing import assert_frame_equal
+from datetime import datetime
 
 
 @pytest.fixture
@@ -93,3 +95,155 @@ def test_with_benchmarks(sample_data_multiple):
     result = risk_and_return(sample_data_multiple, interval_months=3, benchmarks=benchmarks)
     for key in ['result_df', 'return_lines', 'drawdown_df']:
         assert key in result, f"传入 benchmarks 后返回结果中缺少键 {key}"
+
+
+class TestBasicFunction:
+    """测试基础功能"""
+
+    def test_normal_case(self):
+        # 构造测试数据
+        df1 = pd.DataFrame({
+            'trade_date': [datetime(2023, 1, 1), datetime(2023, 1, 2)],
+            'symbol': ['A', 'A'],
+            'close': [10.0, 11.0]
+        })
+        df2 = pd.DataFrame({
+            'trade_date': [datetime(2023, 1, 1), datetime(2023, 1, 2)],
+            'symbol': ['B', 'B'],
+            'close': [20.0, 21.0]
+        })
+
+        result = get_matrix(
+            dfs=[df1, df2],
+            time_range=(datetime(2023, 1, 1), datetime(2023, 1, 2)),
+            metric_col='close'
+        )
+
+        # 验证数据结构
+        expected = pd.DataFrame(
+            [[10.0, 20.0], [11.0, 21.0]],
+            index=pd.date_range('2023-01-01', '2023-01-02', freq='D'),
+            columns=['A', 'B'],
+        )
+        expected.index.name = 'trade_date'
+        assert_frame_equal(result, expected, check_names=False)
+
+
+class TestInvalidInputs:
+    """测试异常输入"""
+
+    def test_empty_dfs(self):
+        with pytest.raises(ValueError) as excinfo:
+            get_matrix([], (datetime(2023, 1, 1), datetime(2023, 1, 2)), 'close')
+        assert "没有满足时间范围的数据" in str(excinfo.value)
+
+    def test_missing_symbol_column(self):
+        df = pd.DataFrame({'trade_date': [datetime(2023, 1, 1)], 'close': [10.0]})
+        with pytest.raises(ValueError) as excinfo:
+            get_matrix([df], (datetime(2023, 1, 1), datetime(2023, 1, 1)), 'close')
+        assert "缺少'symbol'字段" in str(excinfo.value)
+
+
+class TestDateTimeHandling:
+    """测试日期处理"""
+
+    def test_string_date_conversion(self):
+        df = pd.DataFrame({
+            'trade_date': ['2023-01-01', '2023-01-02'],
+            'symbol': ['A', 'A'],
+            'close': [10.0, 11.0]
+        })
+        result = get_matrix(
+            [df],
+            (datetime(2023, 1, 1), datetime(2023, 1, 2)),
+            'close'
+        )
+        assert isinstance(result.index, pd.DatetimeIndex)
+
+    def test_time_filtering(self):
+        df = pd.DataFrame({
+            'trade_date': [datetime(2022, 12, 31), datetime(2023, 1, 1)],
+            'symbol': ['A', 'A'],
+            'close': [9.0, 10.0]
+        })
+        result = get_matrix(
+            [df],
+            (datetime(2023, 1, 1), datetime(2023, 1, 1)),
+            'close'
+        )
+        assert len(result) == 1
+        assert result.iloc[0, 0] == 10.0
+
+
+class TestResampling:
+    """测试重采样逻辑"""
+
+    def test_weekly_resample(self):
+        dates = [
+            datetime(2023, 1, 31), datetime(2023, 2, 28),
+            datetime(2023, 3, 31), datetime(2023, 4, 30)
+        ]
+        df = pd.DataFrame({
+            'trade_date': dates,
+            'symbol': ['A'] * 4,
+            'close': [10.0, 11.0, 12.0, 13.0]
+        })
+        result = get_matrix(
+            [df],
+            time_range=(datetime(2023, 1, 1), datetime(2023, 3, 1)),
+            metric_col='close',
+            period='M'
+        )
+        expected_dates = pd.date_range('2023-01-31', '2023-02-28', freq='M')
+        assert result.index.equals(expected_dates)
+        assert result['A'].tolist() == [10.0, 11.0]
+
+
+def test_ffill_with_warning():
+    df = pd.DataFrame({
+        'trade_date': [datetime(2023, 1, 2)],
+        'symbol': ['A'],
+        'close': [10.0]
+    })
+    with pytest.warns(UserWarning) as record:
+        result = get_matrix(
+            [df],
+            (datetime(2023, 1, 1), datetime(2023, 1, 2)),
+            'close'
+        )
+    # 检查警告内容中包含提示信息
+    assert "起始处无有效数据" in str(record[0].message)
+    # 因为完整索引第一行无前置数据，前向填充不会填充，故应为 NaN
+    assert pd.isna(result['A'].iloc[0])
+    # 后续行会前向填充，故第二行应为 10.0
+    assert result['A'].iloc[1] == 10.0
+
+
+class TestLogReturn:
+    """测试对数收益率"""
+
+    def test_log_return_calculation(self):
+        df = pd.DataFrame({
+            'trade_date': [datetime(2023, 1, 1), datetime(2023, 1, 2)],
+            'symbol': ['A', 'A'],
+            'close': [100.0, 105.0]
+        })
+        result = get_matrix([df], (datetime(2023, 1, 1), datetime(2023, 1, 2)),
+                            'close', log_return=True)
+        expected = np.log(105 / 100)
+        assert np.isclose(result['A'].iloc[0], expected)
+        assert len(result) == 1  # 删除首行NaN
+
+
+class TestSpecialCases:
+    """测试特殊参数"""
+
+    def test_not_implemented_period(self):
+        df = pd.DataFrame({
+            'trade_date': [datetime(2023, 1, 1)],
+            'symbol': ['A'],
+            'close': [10.0]
+        })
+        with pytest.raises(NotImplementedError):
+            get_matrix([df], (datetime(2023, 1, 1), datetime(2023, 1, 1)),
+                       'close', period='N')
